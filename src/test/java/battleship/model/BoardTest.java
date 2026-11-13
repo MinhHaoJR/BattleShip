@@ -31,6 +31,25 @@ class BoardTest {
     }
 
     @Test
+    void rejectsSameShipTypeTwice() {
+        Board b = new Board();
+        assertTrue(b.placeShip(ShipType.DESTROYER, 0, 0, true));
+        assertFalse(b.placeShip(ShipType.DESTROYER, 5, 5, true));
+    }
+
+    @Test
+    void allShipsPlacedOnlyWhenFiveShips() {
+        Board b = new Board();
+        assertFalse(b.allShipsPlaced());
+        int row = 0;
+        for (ShipType t : ShipType.values()) assertTrue(b.placeShip(t, row++, 0, true));
+        assertTrue(b.allShipsPlaced());
+        b.clear();
+        assertFalse(b.allShipsPlaced());
+        assertEquals(CellState.EMPTY, b.getCell(0, 0));
+    }
+
+    @Test
     void fireMissHitSunkAndRepeat() {
         Board b = new Board();
         b.placeShip(ShipType.DESTROYER, 2, 2, true); // ô (2,2) và (2,3)
@@ -52,5 +71,8 @@ class BoardTest {
             for (int c = 0; c < Board.SIZE; c++)
                 if (b.getCell(r, c) == CellState.SHIP) shipCells++;
         assertEquals(5 + 4 + 3 + 3 + 2, shipCells);
+        assertTrue(b.allShipsPlaced());
+        b.placeRandomly(); // gọi lại phải xóa bàn cũ, không cộng dồn
+        assertTrue(b.allShipsPlaced());
     }
 }
