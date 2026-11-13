@@ -18,7 +18,21 @@ Hoặc mở thư mục bằng IntelliJ / NetBeans / VS Code (tự nhận Maven),
 | `ui/` + `Main` | `MainFrame`, `SetupPanel`, `GamePanel`, `BoardPanel` | Tâm |
 
 **Hợp đồng:** chữ ký public của `Board` và `Game` là giao diện giữa logic và UI. Muốn đổi phải báo người kia.
-`Board.getCell()` đã chạy được, nên UI có thể vẽ bàn cờ ngay khi logic chưa xong.
+
+**Phần logic đã xong** (nhánh `logic`). Những gì UI cần dùng:
+
+| Gọi | Dùng khi |
+|---|---|
+| `board.placeShip(type, row, col, horizontal)` | Đặt tàu ở màn chuẩn bị. Trả `false` nếu đặt sai chỗ |
+| `board.placeRandomly()` / `board.clear()` | Nút "Ngẫu nhiên" / "Đặt lại" |
+| `board.hasShip(type)`, `board.allShipsPlaced()` | Làm mờ tàu đã đặt; chỉ bật nút "Bắt đầu" khi đủ 5 tàu |
+| `board.getCell(row, col)` | Vẽ ô. **Bàn của máy: vẽ `SHIP` như `EMPTY`** để không lộ tàu |
+| `new Game(playerBoard)` | Bắt đầu ván (ném lỗi nếu chưa đủ tàu) |
+| `game.playerFire(row, col)` | Người bấm ô bên bàn máy. `ALREADY_SHOT` thì vẫn giữ lượt |
+| `game.computerTurn()` | Gọi ngay sau lượt người (có thể dùng `javax.swing.Timer` cho chậm lại); trả về `Shot` để vẽ |
+| `game.isPlayerTurn()`, `game.isOver()`, `game.playerWon()` | Khóa bàn khi chưa tới lượt, hiện màn thắng/thua |
+
+AI: tìm kiểu ô bàn cờ (chỉ bắn ô `row + col` chẵn), trúng thì săn 4 ô xung quanh. Mô phỏng 10.000 ván: trung bình **64 phát** để đánh chìm hết tàu, so với khoảng 95 phát nếu bắn hoàn toàn ngẫu nhiên.
 
 ## Tiến độ
 | Tuần | Hảo (Logic + AI) | Tâm (UI) |
