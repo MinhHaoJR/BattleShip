@@ -119,23 +119,37 @@ public final class OceanMapBackdrop {
     }
 
     public static Color gridLineColor() {
-        return switch (selectedMapTheme) {
+        Color base = switch (selectedMapTheme) {
             case NAVAL_CITADEL -> new Color(56, 189, 248, 56);
             case FANTASY_REALM -> new Color(244, 114, 182, 62);
             case APOCALYPSE -> new Color(249, 115, 22, 66);
             case GALAXY_COSMOS -> new Color(168, 85, 247, 68);
             case ABYSSAL_ATLANTIS -> new Color(45, 212, 191, 64);
         };
+        if (!titanPhase2) return base;
+        return new Color(
+                Math.min(255, base.getRed() + 34),
+                Math.min(255, base.getGreen() + 14),
+                Math.min(255, base.getBlue() + 18),
+                Math.min(140, base.getAlpha() + 34));
     }
 
     public static Color boardBorderColor(boolean zombieFleet) {
         if (zombieFleet) return new Color(34, 197, 94, 118);
-        return switch (selectedMapTheme) {
+        Color base = switch (selectedMapTheme) {
             case NAVAL_CITADEL -> new Color(56, 189, 248, 92);
             case FANTASY_REALM -> new Color(244, 114, 182, 105);
             case APOCALYPSE -> new Color(249, 115, 22, 112);
             case GALAXY_COSMOS -> new Color(168, 85, 247, 116);
             case ABYSSAL_ATLANTIS -> new Color(45, 212, 191, 108);
+        };
+        if (!titanPhase2) return base;
+        return switch (selectedMapTheme) {
+            case NAVAL_CITADEL -> new Color(245, 158, 11, 168);
+            case FANTASY_REALM -> new Color(244, 114, 182, 175);
+            case APOCALYPSE -> new Color(251, 113, 133, 180);
+            case GALAXY_COSMOS -> new Color(192, 132, 252, 180);
+            case ABYSSAL_ATLANTIS -> new Color(45, 212, 191, 175);
         };
     }
 
@@ -159,7 +173,26 @@ public final class OceanMapBackdrop {
         return (System.nanoTime() - ORIGIN_NANOS) / 1_000_000_000.0;
     }
 
+    private static volatile boolean titanPhase2;
     private static volatile long lastTriggeredLightningCycle = -1L;
+
+    public static boolean isTitanPhase2() {
+        return titanPhase2;
+    }
+
+    public static void setTitanPhase2(boolean phase2) {
+        if (titanPhase2 == phase2) return;
+        titanPhase2 = phase2;
+        invalidateBakedCache(BAKED_SINGLE);
+        invalidateBakedCache(BAKED_DUAL);
+    }
+
+    private static void invalidateBakedCache(BakedBackdrop b) {
+        b.terrainImage = null;
+        b.image = null;
+        b.terrainT = Double.NaN;
+        b.bakedT = Double.NaN;
+    }
     private static volatile long surgeStartMs = 0L;
     private static volatile long surgeUntilMs = 0L;
     private static volatile double surgeWindX = 0.0;
@@ -285,6 +318,8 @@ public final class OceanMapBackdrop {
         Season season;
         WeatherMode weather;
         boolean zombie;
+        boolean titan;
+        boolean titanPhase2;
         double terrainT = Double.NaN;
         double bakedT = Double.NaN;
     }
@@ -337,6 +372,8 @@ public final class OceanMapBackdrop {
         Atmosphere atmo = resolveAtmosphere(t);
         MapTheme theme = selectedMapTheme;
         boolean zombie = ZombieMode.isZombieMode();
+        boolean titan = ZombieMode.isTitanMode();
+        boolean phase2 = titanPhase2;
 
         AffineTransform rootTx = g.getTransform();
         double sx = 1.0;
@@ -358,7 +395,9 @@ public final class OceanMapBackdrop {
                 || cache.theme != theme
                 || cache.season != selectedSeason
                 || cache.weather != selectedWeather
-                || cache.zombie != zombie;
+                || cache.zombie != zombie
+                || cache.titan != titan
+                || cache.titanPhase2 != phase2;
 
         boolean terrainExpired = configChanged
                 || cache.terrainImage == null
@@ -407,6 +446,8 @@ public final class OceanMapBackdrop {
             cache.season = selectedSeason;
             cache.weather = selectedWeather;
             cache.zombie = zombie;
+            cache.titan = titan;
+            cache.titanPhase2 = phase2;
             cache.bakedT = t;
         }
 
@@ -560,15 +601,17 @@ public final class OceanMapBackdrop {
                 : Math.max(74, Math.min(92, (int) (minDim * 0.120)));
         int beaconSize = Math.max(46, Math.min(62, (int) (minDim * 0.086)));
 
+        boolean zomMode = ZombieMode.isZombieMode();
+        boolean bossMode = ZombieMode.isTitanMode();
         String leftKey = switch (theme) {
-            case NAVAL_CITADEL -> "fortress";
+            case NAVAL_CITADEL -> zomMode ? "city_zombie_hub" : (bossMode ? "city_boss_citadel" : "city_normal_hub");
             case FANTASY_REALM -> "fantasy_citadel";
             case APOCALYPSE -> "apoc_volcano";
             case GALAXY_COSMOS -> "galaxy_blackhole";
             case ABYSSAL_ATLANTIS -> "atlantis_temple";
         };
         String rightKey = switch (theme) {
-            case NAVAL_CITADEL -> "arcane";
+            case NAVAL_CITADEL -> zomMode ? "city_zombie_nest" : (bossMode ? "city_boss_altar" : "city_normal_fort");
             case FANTASY_REALM -> "fantasy_sanctuary";
             case APOCALYPSE -> "apoc_ruin";
             case GALAXY_COSMOS -> "galaxy_planet";
@@ -605,12 +648,14 @@ public final class OceanMapBackdrop {
                 float[][] lobes = {
                         {w * 0.28f, h * 0.34f, w * 0.42f, 0.24f},
                         {w * 0.72f, h * 0.62f, w * 0.45f, 0.22f},
-                        {w * 0.50f, h * 0.48f, w * 0.36f, 0.18f}
+                        {w * 0.50f, h * 0.48f, w * 0.36f, titanPhase2 ? 0.34f : 0.18f}
                 };
-                Color[] cA = {new Color(0x9333EA), new Color(0x06B6D4), new Color(0xEC4899)};
+                Color[] cA = titanPhase2
+                        ? new Color[]{new Color(0xC026D3), new Color(0x22D3EE), new Color(0xF43F5E)}
+                        : new Color[]{new Color(0x9333EA), new Color(0x06B6D4), new Color(0xEC4899)};
                 for (int i = 0; i < lobes.length; i++) {
                     int lr = (int) Math.max(80, lobes[i][2]);
-                    int peak = (int) (78 * (lobes[i][3] / 0.24));
+                    int peak = (int) ((titanPhase2 ? 102 : 78) * (lobes[i][3] / 0.24));
                     BufferedImage neb = getHaloStamp(cA[i], Math.min(180, lr / 3), peak);
                     if (neb != null) {
                         g.setComposite(AlphaComposite.SrcOver);
@@ -619,37 +664,41 @@ public final class OceanMapBackdrop {
                 }
             }
             case APOCALYPSE -> {
-                for (int f = 0; f < 6; f++) {
+                int cracks = titanPhase2 ? 9 : 6;
+                for (int f = 0; f < cracks; f++) {
                     double pulse = 0.55 + 0.45 * Math.sin(t * 1.8 + f * 1.1);
                     Path2D crack = new Path2D.Double();
                     double x0 = (f % 2 == 0) ? 0 : w;
                     double dir = (f % 2 == 0) ? 1 : -1;
-                    double y0 = h * (0.14 + f * 0.14);
+                    double y0 = h * (0.08 + f * (0.84 / cracks));
                     crack.moveTo(x0, y0);
                     for (int k = 1; k <= 6; k++) {
                         double cxp = x0 + dir * (k * w * 0.16);
                         double cyp = y0 + Math.sin(f * 3.1 + k * 2.2) * 32.0;
                         crack.lineTo(cxp, cyp);
                     }
-                    g.setComposite(AlphaComposite.SrcOver.derive((float) (0.18 * pulse)));
-                    g.setColor(new Color(0xEA580C));
-                    g.setStroke(new BasicStroke(6.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g.setComposite(AlphaComposite.SrcOver.derive((float) ((titanPhase2 ? 0.28 : 0.18) * pulse)));
+                    g.setColor(titanPhase2 ? new Color(0xDC2626) : new Color(0xEA580C));
+                    g.setStroke(new BasicStroke(titanPhase2 ? 8.0f : 6.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                     g.draw(crack);
-                    g.setComposite(AlphaComposite.SrcOver.derive((float) (0.48 * pulse)));
-                    g.setColor(new Color(0xFDE047));
-                    g.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g.setComposite(AlphaComposite.SrcOver.derive((float) ((titanPhase2 ? 0.66 : 0.48) * pulse)));
+                    g.setColor(titanPhase2 ? new Color(0xFEF08A) : new Color(0xFDE047));
+                    g.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                     g.draw(crack);
                 }
                 g.setComposite(AlphaComposite.SrcOver);
-                g.setPaint(new GradientPaint(0, h * 0.65f, new Color(249, 115, 22, 0), 0, h, new Color(220, 38, 38, 65)));
-                g.fillRect(0, (int) (h * 0.65f), w, h);
+                g.setPaint(new GradientPaint(0, h * 0.60f, new Color(249, 115, 22, 0), 0, h,
+                        new Color(220, 38, 38, titanPhase2 ? 105 : 65)));
+                g.fillRect(0, (int) (h * 0.60f), w, h);
             }
             case FANTASY_REALM -> {
                 float[][] pools = {{w * 0.25f, h * 0.30f}, {w * 0.76f, h * 0.70f}};
-                Color[] cols = {new Color(0xEC4899), new Color(0x6366F1)};
+                Color[] cols = titanPhase2
+                        ? new Color[]{new Color(0xF43F5E), new Color(0xA855F7)}
+                        : new Color[]{new Color(0xEC4899), new Color(0x6366F1)};
                 for (int i = 0; i < 2; i++) {
                     int pr = (int) Math.max(90, w * 0.36f);
-                    BufferedImage pool = getHaloStamp(cols[i], Math.min(180, pr / 3), 52);
+                    BufferedImage pool = getHaloStamp(cols[i], Math.min(180, pr / 3), titanPhase2 ? 72 : 52);
                     if (pool != null) {
                         g.setComposite(AlphaComposite.SrcOver);
                         g.drawImage(pool, (int) (pools[i][0] - pr), (int) (pools[i][1] - pr), pr * 2, pr * 2, null);
@@ -657,8 +706,8 @@ public final class OceanMapBackdrop {
                 }
             }
             case ABYSSAL_ATLANTIS -> {
-                g.setComposite(AlphaComposite.SrcOver.derive(0.08f));
-                g.setColor(new Color(0x5EEAD4));
+                g.setComposite(AlphaComposite.SrcOver.derive(titanPhase2 ? 0.14f : 0.08f));
+                g.setColor(titanPhase2 ? new Color(0x2DD4BF) : new Color(0x5EEAD4));
                 for (int r = 0; r < 5; r++) {
                     double bx = w * (0.12 + r * 0.19) + Math.sin(t * 0.4 + r) * 22.0;
                     Path2D ray = new Path2D.Double();
@@ -670,7 +719,16 @@ public final class OceanMapBackdrop {
                     g.fill(ray);
                 }
             }
-            case NAVAL_CITADEL -> { }
+            case NAVAL_CITADEL -> {
+                if (titanPhase2) {
+                    int pr = (int) Math.max(110, w * 0.34f);
+                    BufferedImage pulseGlow = getHaloStamp(new Color(0x0284C7), Math.min(180, pr / 3), 56);
+                    if (pulseGlow != null) {
+                        g.setComposite(AlphaComposite.SrcOver);
+                        g.drawImage(pulseGlow, w / 2 - pr, h / 2 - pr, pr * 2, pr * 2, null);
+                    }
+                }
+            }
         }
         g.setPaint(prevP);
     }
@@ -1297,6 +1355,51 @@ public final class OceanMapBackdrop {
             oceanChannel = lerpColor(oceanChannel, new Color(0x133827), 0.45);
             leyPrimary = lerpColor(leyPrimary, new Color(0x22C55E), 0.72);
             leySecondary = lerpColor(leySecondary, new Color(0xF43F5E), 0.65);
+        }
+
+        if (titanPhase2) {
+            switch (selectedMapTheme) {
+                case NAVAL_CITADEL -> {
+                    skyEdge = lerpColor(skyEdge, new Color(0x030917), 0.62);
+                    oceanMid = lerpColor(oceanMid, new Color(0x0B1933), 0.58);
+                    oceanChannel = lerpColor(oceanChannel, new Color(0x133159), 0.54);
+                    leyPrimary = new Color(0x38BDF8);
+                    leySecondary = new Color(0xF59E0B);
+                    storm = Math.max(storm, 0.72);
+                }
+                case FANTASY_REALM -> {
+                    skyEdge = lerpColor(skyEdge, new Color(0x180726), 0.68);
+                    oceanMid = lerpColor(oceanMid, new Color(0x2C104E), 0.64);
+                    oceanChannel = lerpColor(oceanChannel, new Color(0x491878), 0.60);
+                    leyPrimary = new Color(0xF472B6);
+                    leySecondary = new Color(0xFACC15);
+                    storm = Math.max(storm, 0.45);
+                }
+                case APOCALYPSE -> {
+                    skyEdge = new Color(0x140304);
+                    oceanMid = new Color(0x300807);
+                    oceanChannel = new Color(0x521208);
+                    leyPrimary = new Color(0xFDBA74);
+                    leySecondary = new Color(0xEF4444);
+                    storm = Math.max(storm, 0.62);
+                }
+                case GALAXY_COSMOS -> {
+                    skyEdge = new Color(0x040112);
+                    oceanMid = new Color(0x120630);
+                    oceanChannel = new Color(0x260C54);
+                    leyPrimary = new Color(0xE879F9);
+                    leySecondary = new Color(0x22D3EE);
+                    storm = Math.max(storm, 0.55);
+                }
+                case ABYSSAL_ATLANTIS -> {
+                    skyEdge = new Color(0x021017);
+                    oceanMid = new Color(0x052836);
+                    oceanChannel = new Color(0x0B4B5B);
+                    leyPrimary = new Color(0x2DD4BF);
+                    leySecondary = new Color(0xC084FC);
+                    storm = Math.max(storm, 0.68);
+                }
+            }
         }
 
         return new Atmosphere(

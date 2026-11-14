@@ -29,17 +29,17 @@ import java.util.concurrent.TimeUnit;
  */
 public final class SoundEngine {
     public enum BgmTrack {
-        SETUP("Mưu Lược", "audio/bgm_setup.wav", -4.5f),
-        NAVAL("Đại Dương", "audio/bgm_naval.wav", -3.0f),
-        FANTASY("Thần Giới", "audio/bgm_fantasy.wav", -3.0f),
-        APOCALYPSE("Tận Thế", "audio/bgm_apocalypse.wav", -3.5f),
-        GALAXY("Vũ Trụ", "audio/bgm_galaxy.wav", -3.0f),
-        ATLANTIS("Atlantis", "audio/bgm_atlantis.wav", -3.0f),
-        ZOMBIE("Zombie", "audio/bgm_zombie.wav", -3.5f),
-        TITAN("Titan Boss", "audio/bgm_titan.wav", -3.4f),
-        TITAN_GHIDORAH("Ghidorah", "audio/bgm_titan_ghidorah.wav", -3.4f),
-        TITAN_MOTHRA("Mothra", "audio/bgm_titan_mothra.wav", -3.4f),
-        TITAN_ENRAGE("Cuồng Bạo", "audio/bgm_titan_enrage.wav", -2.8f);
+        SETUP("Mưu Lược", "audio/bgm_setup.wav", -5.5f),
+        NAVAL("Đại Dương", "audio/bgm_naval.wav", -5.0f),
+        FANTASY("Thần Giới", "audio/bgm_fantasy.wav", -5.0f),
+        APOCALYPSE("Tận Thế", "audio/bgm_apocalypse.wav", -5.2f),
+        GALAXY("Vũ Trụ", "audio/bgm_galaxy.wav", -5.0f),
+        ATLANTIS("Atlantis", "audio/bgm_atlantis.wav", -5.0f),
+        ZOMBIE("Zombie", "audio/bgm_zombie.wav", -5.2f),
+        TITAN("Titan Boss", "audio/bgm_titan.wav", -5.0f),
+        TITAN_GHIDORAH("Ghidorah", "audio/bgm_titan_ghidorah.wav", -5.0f),
+        TITAN_MOTHRA("Mothra", "audio/bgm_titan_mothra.wav", -5.0f),
+        TITAN_ENRAGE("Cuồng Bạo", "audio/bgm_titan_enrage.wav", -4.5f);
 
         public final String shortLabel;
         public final String resourcePath;
@@ -53,59 +53,68 @@ public final class SoundEngine {
     }
 
     public enum Sfx {
-        UI_CLICK("audio/sfx_ui_click.wav", -6.0f, 2),
-        SHIP_PLACE("audio/sfx_ship_place.wav", -2.0f, 2),
-        FIRE_CANNON("audio/sfx_fire_cannon.wav", -1.0f, 2),
-        FIRE_TORPEDO("audio/sfx_fire_torpedo.wav", -1.0f, 2),
-        FIRE_MISSILE("audio/sfx_fire_missile.wav", -1.0f, 2),
-        FIRE_AIRSTRIKE("audio/sfx_fire_airstrike.wav", -1.0f, 2),
-        MAGIC_FIRE("audio/sfx_magic_fire.wav", -1.5f, 2),
-        MAGIC_LIGHTNING("audio/sfx_magic_lightning.wav", -1.5f, 2),
-        MAGIC_SONAR("audio/sfx_magic_sonar.wav", -2.5f, 2),
-        MAGIC_FROST("audio/sfx_magic_frost.wav", -2.0f, 2),
-        HIT("audio/sfx_hit.wav", -0.5f, 3),
-        MISS("audio/sfx_miss.wav", -2.5f, 3),
-        SUNK("audio/sfx_sunk.wav", 0.0f, 2),
-        SHIELD_BLOCK("audio/sfx_shield_block.wav", -1.5f, 2),
-        SHIELD_ACTIVATE("audio/sfx_shield_activate.wav", -0.5f, 2),
-        ZOMBIE_ROAR("audio/sfx_zombie_roar.wav", -1.5f, 2),
-        TITAN_GODZILLA_ROAR("audio/sfx_titan_godzilla_roar.wav", 1.2f, 2),
-        TITAN_ATOMIC_BREATH("audio/sfx_titan_atomic_breath.wav", 1.5f, 2),
-        TITAN_TAIL_SLAM("audio/sfx_titan_tail_slam.wav", 1.4f, 2),
-        TITAN_PULSE("audio/sfx_titan_pulse.wav", 1.5f, 2),
-        TITAN_ENRAGE_TRANSFORM("audio/sfx_titan_enrage_transform.wav", 1.5f, 1),
-        TITAN_SPIRAL_RAY("audio/sfx_titan_spiral_ray.wav", 1.5f, 2),
-        TITAN_MELTDOWN_RIFT("audio/sfx_titan_meltdown_rift.wav", 1.5f, 2),
-        TITAN_GHIDORAH_ROAR("audio/sfx_titan_ghidorah_roar.wav", 1.0f, 2),
-        TITAN_GRAVITY_BEAM("audio/sfx_titan_gravity_beam.wav", 1.3f, 2),
-        TITAN_HURRICANE_WING("audio/sfx_titan_hurricane_wing.wav", 1.2f, 2),
-        TITAN_ALPHA_STORM("audio/sfx_titan_alpha_storm.wav", 1.4f, 2),
-        TITAN_CATACLYSM("audio/sfx_titan_cataclysm.wav", 1.4f, 2),
-        TITAN_MOTHRA_ROAR("audio/sfx_titan_mothra_roar.wav", 1.1f, 2),
-        TITAN_MOTHRA_GALE("audio/sfx_titan_mothra_gale.wav", 1.3f, 2),
-        TITAN_MOTHRA_GODRAY("audio/sfx_titan_mothra_godray.wav", 1.3f, 2),
-        TITAN_MOTHRA_SILK("audio/sfx_titan_mothra_silk.wav", 1.1f, 2),
-        TITAN_MOTHRA_PRISM("audio/sfx_titan_mothra_prism.wav", 1.2f, 2),
-        TITAN_MOTHRA_NOVA("audio/sfx_titan_mothra_nova.wav", 1.5f, 2),
-        TITAN_BOSS_INTRO("audio/sfx_titan_boss_intro.wav", 1.4f, 1),
-        BOSS_POV_GODZILLA("audio/sfx_boss_pov_godzilla.wav", 1.5f, 1),
-        BOSS_POV_GHIDORAH("audio/sfx_boss_pov_ghidorah.wav", 1.5f, 1),
-        BOSS_POV_MOTHRA("audio/sfx_boss_pov_mothra.wav", 1.5f, 1),
-        SHIELD_CRACK("audio/sfx_shield_crack.wav", 1.0f, 3),
-        SHIELD_SHATTER("audio/sfx_shield_shatter.wav", 1.5f, 2),
-        SUPERSHIP_READY("audio/sfx_supership_ready.wav", 1.0f, 1),
-        SUPERSHIP_CUTSCENE("audio/sfx_supership_cutscene.wav", 1.5f, 1),
-        SUPERSHIP_HYPERCANNON("audio/sfx_supership_hypercannon.wav", 1.5f, 2),
-        VICTORY("audio/sfx_victory.wav", -1.0f, 1),
-        DEFEAT("audio/sfx_defeat.wav", -1.5f, 1),
-        THUNDER_CRACK("audio/sfx_thunder_crack.wav", -0.5f, 2),
-        THUNDER_RUMBLE("audio/sfx_thunder_rumble.wav", -2.5f, 2),
-        WIND_GUST("audio/sfx_wind_gust.wav", -4.5f, 2),
-        DRAGON_CRY("audio/sfx_dragon_cry.wav", -5.0f, 2),
-        WORLD_BEACON("audio/sfx_world_beacon.wav", -4.5f, 2),
-        WORLD_VOLCANO("audio/sfx_world_volcano.wav", -4.0f, 2),
-        WORLD_PORTAL("audio/sfx_world_portal.wav", -4.5f, 2),
-        WORLD_METEOR("audio/sfx_world_meteor.wav", -4.5f, 2);
+        UI_CLICK("audio/sfx_ui_click.wav", -7.5f, 2),
+        SHIP_PLACE("audio/sfx_ship_place.wav", -5.5f, 2),
+        FIRE_CANNON("audio/sfx_fire_cannon.wav", -3.5f, 2),
+        FIRE_TORPEDO("audio/sfx_fire_torpedo.wav", -3.5f, 2),
+        FIRE_MISSILE("audio/sfx_fire_missile.wav", -3.8f, 2),
+        FIRE_AIRSTRIKE("audio/sfx_fire_airstrike.wav", -3.8f, 2),
+        MAGIC_FIRE("audio/sfx_magic_fire.wav", -6.5f, 2),
+        MAGIC_LIGHTNING("audio/sfx_magic_lightning.wav", -6.5f, 2),
+        MAGIC_SONAR("audio/sfx_magic_sonar.wav", -6.5f, 2),
+        MAGIC_FROST("audio/sfx_magic_frost.wav", -6.5f, 2),
+        HIT("audio/sfx_hit.wav", -3.0f, 3),
+        MISS("audio/sfx_miss.wav", -6.5f, 3),
+        SUNK("audio/sfx_sunk.wav", -2.5f, 2),
+        SHIELD_BLOCK("audio/sfx_shield_block.wav", -5.5f, 2),
+        SHIELD_ACTIVATE("audio/sfx_shield_activate.wav", -4.5f, 2),
+        ZOMBIE_ROAR("audio/sfx_zombie_roar.wav", -4.0f, 2),
+        ZOMBIE_SPIT("audio/sfx_zombie_spit.wav", -3.0f, 3),
+        ZOMBIE_SPORE("audio/sfx_zombie_spore.wav", -3.5f, 3),
+        ZOMBIE_CURSE("audio/sfx_zombie_curse.wav", -3.0f, 2),
+        ZOMBIE_BLOOD_CANNON("audio/sfx_zombie_blood_cannon.wav", -2.5f, 2),
+        ZOMBIE_BAT_SWARM("audio/sfx_zombie_bat_swarm.wav", -3.0f, 2),
+        ZOMBIE_HIT("audio/sfx_zombie_hit.wav", -2.5f, 3),
+        TITAN_GODZILLA_ROAR("audio/sfx_titan_godzilla_roar.wav", -1.5f, 2),
+        TITAN_ATOMIC_BREATH("audio/sfx_titan_atomic_breath.wav", -3.0f, 2),
+        TITAN_TAIL_SLAM("audio/sfx_titan_tail_slam.wav", -3.2f, 2),
+        TITAN_PULSE("audio/sfx_titan_pulse.wav", -3.2f, 2),
+        TITAN_ENRAGE_TRANSFORM("audio/sfx_titan_enrage_transform.wav", -2.5f, 1),
+        TITAN_SPIRAL_RAY("audio/sfx_titan_spiral_ray.wav", -3.0f, 2),
+        TITAN_MELTDOWN_RIFT("audio/sfx_titan_meltdown_rift.wav", -3.0f, 2),
+        TITAN_GHIDORAH_ROAR("audio/sfx_titan_ghidorah_roar.wav", -1.5f, 2),
+        TITAN_GRAVITY_BEAM("audio/sfx_titan_gravity_beam.wav", -3.2f, 2),
+        TITAN_HURRICANE_WING("audio/sfx_titan_hurricane_wing.wav", -3.5f, 2),
+        TITAN_ALPHA_STORM("audio/sfx_titan_alpha_storm.wav", -3.2f, 2),
+        TITAN_CATACLYSM("audio/sfx_titan_cataclysm.wav", -3.0f, 2),
+        TITAN_MOTHRA_ROAR("audio/sfx_titan_mothra_roar.wav", -1.8f, 2),
+        TITAN_MOTHRA_GALE("audio/sfx_titan_mothra_gale.wav", -3.5f, 2),
+        TITAN_MOTHRA_GODRAY("audio/sfx_titan_mothra_godray.wav", -3.5f, 2),
+        TITAN_MOTHRA_SILK("audio/sfx_titan_mothra_silk.wav", -3.8f, 2),
+        TITAN_MOTHRA_PRISM("audio/sfx_titan_mothra_prism.wav", -3.8f, 2),
+        TITAN_MOTHRA_NOVA("audio/sfx_titan_mothra_nova.wav", -3.0f, 2),
+        TITAN_BOSS_INTRO("audio/sfx_titan_boss_intro.wav", -2.5f, 1),
+        BOSS_POV_GODZILLA("audio/sfx_boss_pov_godzilla.wav", -2.5f, 1),
+        BOSS_POV_GHIDORAH("audio/sfx_boss_pov_ghidorah.wav", -2.5f, 1),
+        BOSS_POV_MOTHRA("audio/sfx_boss_pov_mothra.wav", -2.5f, 1),
+        TITAN_SKILL_POV_GODZILLA("audio/sfx_titan_skill_pov_godzilla.wav", -1.4f, 1),
+        TITAN_SKILL_POV_GHIDORAH("audio/sfx_titan_skill_pov_ghidorah.wav", -1.4f, 1),
+        TITAN_SKILL_POV_MOTHRA("audio/sfx_titan_skill_pov_mothra.wav", -1.4f, 1),
+        SHIELD_CRACK("audio/sfx_shield_crack.wav", -3.5f, 3),
+        SHIELD_SHATTER("audio/sfx_shield_shatter.wav", -2.5f, 2),
+        SUPERSHIP_READY("audio/sfx_supership_ready.wav", -3.5f, 1),
+        SUPERSHIP_CUTSCENE("audio/sfx_supership_cutscene.wav", -2.5f, 1),
+        SUPERSHIP_HYPERCANNON("audio/sfx_supership_hypercannon.wav", -1.5f, 2),
+        VICTORY("audio/sfx_victory.wav", -3.5f, 1),
+        DEFEAT("audio/sfx_defeat.wav", -3.8f, 1),
+        THUNDER_CRACK("audio/sfx_thunder_crack.wav", -5.5f, 2),
+        THUNDER_RUMBLE("audio/sfx_thunder_rumble.wav", -6.5f, 2),
+        WIND_GUST("audio/sfx_wind_gust.wav", -8.0f, 2),
+        DRAGON_CRY("audio/sfx_dragon_cry.wav", -9.5f, 2),
+        WORLD_BEACON("audio/sfx_world_beacon.wav", -8.5f, 2),
+        WORLD_VOLCANO("audio/sfx_world_volcano.wav", -8.5f, 2),
+        WORLD_PORTAL("audio/sfx_world_portal.wav", -8.0f, 2),
+        WORLD_METEOR("audio/sfx_world_meteor.wav", -8.0f, 2);
 
         public final String resourcePath;
         public final float baseGainDb;
@@ -119,12 +128,12 @@ public final class SoundEngine {
     }
 
     public enum AmbientBed {
-        OCEAN_CALM("audio/amb_ocean_calm.wav", -8.0f),
-        STORM_GALE("audio/amb_storm_gale.wav", -6.5f),
-        FANTASY_GLADE("audio/amb_fantasy_glade.wav", -8.0f),
-        APOCALYPSE_CALDERA("audio/amb_apocalypse_caldera.wav", -7.5f),
-        GALAXY_COSMOS("audio/amb_galaxy_cosmos.wav", -8.5f),
-        ATLANTIS_ABYSS("audio/amb_atlantis_abyss.wav", -7.5f);
+        OCEAN_CALM("audio/amb_ocean_calm.wav", -12.0f),
+        STORM_GALE("audio/amb_storm_gale.wav", -10.5f),
+        FANTASY_GLADE("audio/amb_fantasy_glade.wav", -12.0f),
+        APOCALYPSE_CALDERA("audio/amb_apocalypse_caldera.wav", -11.5f),
+        GALAXY_COSMOS("audio/amb_galaxy_cosmos.wav", -12.5f),
+        ATLANTIS_ABYSS("audio/amb_atlantis_abyss.wav", -11.5f);
 
         public final String resourcePath;
         public final float baseGainDb;
@@ -137,6 +146,15 @@ public final class SoundEngine {
 
     private record PcmData(AudioFormat format, byte[] pcm) { }
 
+    /**
+     * Suppresses physical speaker playback (BGM, ambient beds, SFX) when automated checks pass
+     * {@code -Dbattleship.silent=true} or set {@code BATTLESHIP_SILENT=true}, while keeping WAV
+     * decoding and logical audio state intact.
+     */
+    private static final boolean SILENT_MODE = Boolean.getBoolean("battleship.silent")
+            || "true".equalsIgnoreCase(System.getenv("BATTLESHIP_SILENT"))
+            || "1".equals(System.getenv("BATTLESHIP_SILENT"));
+
     private static final ScheduledExecutorService AUDIO_EXEC = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "BattleShip-Audio");
         t.setDaemon(true);
@@ -148,6 +166,7 @@ public final class SoundEngine {
     private static final Map<Sfx, PcmData> SFX_DATA = new EnumMap<>(Sfx.class);
     private static final Map<Sfx, Clip[]> SFX_POOLS = new EnumMap<>(Sfx.class);
     private static final Map<Sfx, Integer> SFX_CURSOR = new EnumMap<>(Sfx.class);
+    private static final Map<Sfx, Long> SFX_LAST_PLAYED_MS = new EnumMap<>(Sfx.class);
     private static final List<Runnable> LISTENERS = new CopyOnWriteArrayList<>();
 
     private static volatile boolean musicEnabled = true;
@@ -191,6 +210,7 @@ public final class SoundEngine {
 
     public static boolean isMusicEnabled() { return musicEnabled; }
     public static boolean isSfxEnabled() { return sfxEnabled; }
+    public static boolean isSilentMode() { return SILENT_MODE; }
     public static BgmTrack getActiveTrack() { return activeTrack; }
 
     public static boolean toggleMusic() {
@@ -252,13 +272,13 @@ public final class SoundEngine {
 
     /** Plays sky-to-sea thunder synchronized with lightning strikes on screen (cooldown debounced). */
     public static void playThunderStrike(double intensity) {
-        if (!environmentAudioActive || !sfxEnabled || audioDeviceFailed) return;
+        if (!environmentAudioActive || !sfxEnabled || audioDeviceFailed || inBattle) return;
         long now = System.currentTimeMillis();
-        if ((now - lastThunderMs) < 1900L) return;
+        if ((now - lastThunderMs) < 3500L) return;
         lastThunderMs = now;
         boolean closeCrack = intensity >= 0.58;
         AUDIO_EXEC.execute(() -> {
-            triggerSfxInternal(closeCrack ? Sfx.THUNDER_CRACK : Sfx.THUNDER_RUMBLE, closeCrack ? 0.0f : -1.5f);
+            triggerSfxInternal(closeCrack ? Sfx.THUNDER_CRACK : Sfx.THUNDER_RUMBLE, closeCrack ? -1.5f : -2.5f);
         });
     }
 
@@ -312,7 +332,10 @@ public final class SoundEngine {
         inBattle = battleScreen;
         BgmTrack target = resolveDesiredTrack();
         activeTrack = target;
-        AUDIO_EXEC.execute(() -> transitionToTrack(target));
+        AUDIO_EXEC.execute(() -> {
+            transitionToTrack(target);
+            syncAmbientLoopsInternal();
+        });
         notifyListeners();
     }
 
@@ -323,8 +346,9 @@ public final class SoundEngine {
 
     /** Preloads core audio assets asynchronously without blocking UI startup. */
     public static void warmUpAsync() {
+        if (SILENT_MODE || audioDeviceFailed) return;
         AUDIO_EXEC.execute(() -> {
-            if (audioDeviceFailed) return;
+            if (SILENT_MODE || audioDeviceFailed) return;
             for (Sfx sfx : List.of(
                     Sfx.UI_CLICK, Sfx.SHIP_PLACE, Sfx.FIRE_CANNON, Sfx.HIT, Sfx.MISS,
                     Sfx.THUNDER_CRACK, Sfx.THUNDER_RUMBLE, Sfx.WIND_GUST)) {
@@ -361,13 +385,62 @@ public final class SoundEngine {
                 case NONE -> null;
             };
             if (mSfx != null) {
-                AUDIO_EXEC.schedule(() -> triggerSfxInternal(mSfx), 55, TimeUnit.MILLISECONDS);
+                AUDIO_EXEC.schedule(() -> triggerSfxInternal(mSfx, -4.5f), 70, TimeUnit.MILLISECONDS);
             }
         }
     }
 
     public static void playZombieLaunch() {
         playSfx(Sfx.ZOMBIE_ROAR);
+    }
+
+    /**
+     * Plays the distinctive class-specific Zombie skill launch SFX with optional layer accents.
+     */
+    public static void playZombieSkill(ZombieMode.ZombieClass zc) {
+        if (SILENT_MODE || !sfxEnabled || audioDeviceFailed) return;
+        if (zc == null) {
+            playSfx(Sfx.ZOMBIE_ROAR);
+            return;
+        }
+        Sfx primary = switch (zc) {
+            case PLAGUE_DESTROYER -> Sfx.ZOMBIE_SPIT;
+            case BLIGHT_SUBMARINE -> Sfx.ZOMBIE_SPORE;
+            case NECRO_CRUISER -> Sfx.ZOMBIE_CURSE;
+            case BLOOD_BATTLESHIP -> Sfx.ZOMBIE_BLOOD_CANNON;
+            case ABYSS_CARRIER -> Sfx.ZOMBIE_BAT_SWARM;
+        };
+        playSfx(primary);
+        if (zc == ZombieMode.ZombieClass.NECRO_CRUISER) {
+            duckTemporarily(-3.5f, 700L);
+        } else if (zc == ZombieMode.ZombieClass.BLOOD_BATTLESHIP
+                || zc == ZombieMode.ZombieClass.ABYSS_CARRIER) {
+            duckTemporarily(-4.5f, 850L);
+            AUDIO_EXEC.schedule(() -> triggerSfxInternal(Sfx.ZOMBIE_ROAR, 0.55f), 110, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    /**
+     * Plays the Zombie impact SFX (or shield-block / splash-miss) matching strike outcome.
+     */
+    public static void playZombieImpact(ZombieMode.ZombieClass zc, ShotResult result, boolean shielded) {
+        if (SILENT_MODE || !sfxEnabled || audioDeviceFailed) return;
+        if (shielded) {
+            playSfx(Sfx.SHIELD_BLOCK);
+            return;
+        }
+        if (result == null || result == ShotResult.MISS) {
+            playSfx(Sfx.MISS);
+            return;
+        }
+        playSfx(Sfx.ZOMBIE_HIT);
+        if (result == ShotResult.SUNK) {
+            duckTemporarily(-5.5f, 1150L);
+            AUDIO_EXEC.schedule(() -> triggerSfxInternal(Sfx.SUNK, 0.92f), 90, TimeUnit.MILLISECONDS);
+        } else if (zc == ZombieMode.ZombieClass.BLOOD_BATTLESHIP
+                || zc == ZombieMode.ZombieClass.ABYSS_CARRIER) {
+            AUDIO_EXEC.schedule(() -> triggerSfxInternal(Sfx.HIT, 0.65f), 55, TimeUnit.MILLISECONDS);
+        }
     }
 
     public static void playTitanRoar(TitanMode.TitanBoss boss) {
@@ -377,6 +450,7 @@ public final class SoundEngine {
             case MOTHRA -> Sfx.TITAN_MOTHRA_ROAR;
             case GODZILLA -> Sfx.TITAN_GODZILLA_ROAR;
         };
+        duckTemporarily(-3.8f, 950L);
         playSfx(roar);
     }
 
@@ -425,16 +499,11 @@ public final class SoundEngine {
         });
     }
 
+    private static volatile long lastSkillRoarMs = 0L;
+
     public static void playTitanSkill(TitanMode.TitanBoss boss, TitanMode.TitanSkill skill) {
         final TitanMode.TitanBoss roarBoss = boss != null ? boss : TitanMode.TitanBoss.GODZILLA;
         if (skill == null || !sfxEnabled || audioDeviceFailed) return;
-        if (skill == TitanMode.TitanSkill.GZ_ATOMIC_BREATH || skill == TitanMode.TitanSkill.GZ_SPIRAL_RAY) {
-            triggerSfxInternal(skill == TitanMode.TitanSkill.GZ_SPIRAL_RAY
-                    ? Sfx.TITAN_SPIRAL_RAY : Sfx.TITAN_ATOMIC_BREATH);
-            AUDIO_EXEC.schedule(() -> playTitanRoar(roarBoss), 480, TimeUnit.MILLISECONDS);
-            return;
-        }
-        playTitanRoar(roarBoss);
         Sfx skillSfx = switch (skill) {
             case GZ_ATOMIC_BREATH -> Sfx.TITAN_ATOMIC_BREATH;
             case GZ_THERMO_PULSE -> Sfx.TITAN_PULSE;
@@ -452,16 +521,49 @@ public final class SoundEngine {
             case MT_PRISM_RAIN -> Sfx.TITAN_MOTHRA_PRISM;
             case MT_SOLAR_SUPERNOVA -> Sfx.TITAN_MOTHRA_NOVA;
         };
-        AUDIO_EXEC.schedule(() -> triggerSfxInternal(skillSfx), 110, TimeUnit.MILLISECONDS);
+        duckTemporarily(-4.0f, 950L);
+        AUDIO_EXEC.execute(() -> triggerSfxInternal(skillSfx));
+        // Only layer a restrained roar occasionally so two full-volume 2s SFX never clash
+        if (skill != TitanMode.TitanSkill.GZ_ATOMIC_BREATH && skill != TitanMode.TitanSkill.GZ_SPIRAL_RAY) {
+            long now = System.currentTimeMillis();
+            if (now - lastSkillRoarMs >= 4500L) {
+                lastSkillRoarMs = now;
+                Sfx roar = switch (roarBoss) {
+                    case GHIDORAH -> Sfx.TITAN_GHIDORAH_ROAR;
+                    case MOTHRA -> Sfx.TITAN_MOTHRA_ROAR;
+                    case GODZILLA -> Sfx.TITAN_GODZILLA_ROAR;
+                };
+                AUDIO_EXEC.schedule(() -> triggerSfxInternal(roar, -3.5f), 260, TimeUnit.MILLISECONDS);
+            }
+        }
     }
 
-    /** Plays wind gust and optional storm thunder rumble when a Titan actively alters map weather or blows water. */
+    /** Plays deeply ducked cinema-grade sound design synced to Titan Skill POV cutscenes (Minus One, Ghidorah, Mothra). */
+    public static void playTitanSkillPov(TitanMode.TitanBoss boss, TitanMode.TitanSkill skill) {
+        if (!sfxEnabled || audioDeviceFailed) return;
+        TitanMode.TitanBoss safeBoss = boss != null ? boss : (skill != null ? skill.boss : TitanMode.TitanBoss.GODZILLA);
+        Sfx povSfx = switch (safeBoss) {
+            case GHIDORAH -> Sfx.TITAN_SKILL_POV_GHIDORAH;
+            case MOTHRA -> Sfx.TITAN_SKILL_POV_MOTHRA;
+            case GODZILLA -> Sfx.TITAN_SKILL_POV_GODZILLA;
+        };
+        // Duck BGM deeply so the brief dead-silence vacuum pause hits with theatrical contrast
+        duckTemporarily(-7.8f, 2850L);
+        AUDIO_EXEC.execute(() -> triggerSfxInternal(povSfx));
+        if (skill != null && skill.phase2Only) {
+            Sfx roar = switch (safeBoss) {
+                case GHIDORAH -> Sfx.TITAN_GHIDORAH_ROAR;
+                case MOTHRA -> Sfx.TITAN_MOTHRA_ROAR;
+                case GODZILLA -> Sfx.TITAN_GODZILLA_ROAR;
+            };
+            AUDIO_EXEC.schedule(() -> triggerSfxInternal(roar, -5.0f), 1180, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    /** Plays subtle wind shift when a Titan alters weather or blows water (without storm thunder spam). */
     public static void playEnvironmentShift(boolean heavyStorm) {
         if (!sfxEnabled || audioDeviceFailed) return;
-        triggerSfxInternal(Sfx.WIND_GUST);
-        if (heavyStorm) {
-            AUDIO_EXEC.schedule(() -> triggerSfxInternal(Sfx.THUNDER_RUMBLE), 160, TimeUnit.MILLISECONDS);
-        }
+        AUDIO_EXEC.execute(() -> triggerSfxInternal(heavyStorm ? Sfx.THUNDER_RUMBLE : Sfx.WIND_GUST, -4.5f));
     }
 
     public static void playShieldActivate() {
@@ -470,16 +572,13 @@ public final class SoundEngine {
 
     public static void playShieldCrack(int remainingEnergy) {
         if (!sfxEnabled || audioDeviceFailed) return;
-        triggerSfxInternal(Sfx.SHIELD_CRACK);
-        if (remainingEnergy <= 35) {
-            AUDIO_EXEC.schedule(() -> triggerSfxInternal(Sfx.SHIELD_BLOCK), 75, TimeUnit.MILLISECONDS);
-        }
+        AUDIO_EXEC.execute(() -> triggerSfxInternal(Sfx.SHIELD_CRACK, remainingEnergy <= 35 ? -0.5f : -2.5f));
     }
 
     public static void playShieldShatter() {
         if (!sfxEnabled || audioDeviceFailed) return;
-        triggerSfxInternal(Sfx.SHIELD_SHATTER);
-        AUDIO_EXEC.schedule(() -> triggerSfxInternal(Sfx.SUNK), 90, TimeUnit.MILLISECONDS);
+        duckTemporarily(-3.5f, 800L);
+        AUDIO_EXEC.execute(() -> triggerSfxInternal(Sfx.SHIELD_SHATTER));
     }
 
     public static void playSuperShipReady() {
@@ -500,8 +599,56 @@ public final class SoundEngine {
         });
     }
 
+    private static volatile long lastTelegraphWarnMs = 0L;
+
     public static void playSuperShipHyperCannon() {
+        duckTemporarily(-6.5f, 2550L);
         playSfx(Sfx.SUPERSHIP_HYPERCANNON);
+    }
+
+    /** Restrained tactical sonar cue when a fleet vessel stands inside a red Telegraph warning zone. */
+    public static void playRaidTelegraphWarning() {
+        if (!sfxEnabled || audioDeviceFailed) return;
+        long now = System.currentTimeMillis();
+        if (now - lastTelegraphWarnMs < 3600L) return;
+        lastTelegraphWarnMs = now;
+        AUDIO_EXEC.execute(() -> triggerSfxInternal(Sfx.WORLD_BEACON, -4.5f));
+    }
+
+    /** Clean stagger break sound without stacking harsh lightning static on top. */
+    public static void playRaidStaggerBreak() {
+        if (!sfxEnabled || audioDeviceFailed) return;
+        duckTemporarily(-4.0f, 750L);
+        AUDIO_EXEC.execute(() -> triggerSfxInternal(Sfx.SHIELD_SHATTER, -1.5f));
+    }
+
+    /** Crisp two-note counter chime when performing a Timed Shield Parry. */
+    public static void playRaidShieldParry() {
+        if (!sfxEnabled || audioDeviceFailed) return;
+        duckTemporarily(-3.5f, 650L);
+        AUDIO_EXEC.execute(() -> {
+            triggerSfxInternal(Sfx.SHIELD_ACTIVATE, -1.0f);
+            AUDIO_EXEC.schedule(() -> triggerSfxInternal(Sfx.MAGIC_SONAR, -5.0f), 65, TimeUnit.MILLISECONDS);
+        });
+    }
+
+    /** Heavy carapace armor break sound when destroying Boss HEAD, CORE_FIN, or BODY_TAIL. */
+    public static void playRaidPartBroken() {
+        if (!sfxEnabled || audioDeviceFailed) return;
+        duckTemporarily(-4.0f, 800L);
+        AUDIO_EXEC.execute(() -> {
+            triggerSfxInternal(Sfx.SUNK, -1.5f);
+            AUDIO_EXEC.schedule(() -> triggerSfxInternal(Sfx.SHIELD_CRACK, -5.0f), 85, TimeUnit.MILLISECONDS);
+        });
+    }
+
+    /** Subtle reactive chord when triggering 2-way Elemental Chemistry (Melt, Thermal Shock, Superconduct). */
+    public static void playRaidElementalReaction() {
+        if (!sfxEnabled || audioDeviceFailed) return;
+        AUDIO_EXEC.execute(() -> {
+            triggerSfxInternal(Sfx.MAGIC_LIGHTNING, -3.5f);
+            AUDIO_EXEC.schedule(() -> triggerSfxInternal(Sfx.MAGIC_FROST, -6.5f), 70, TimeUnit.MILLISECONDS);
+        });
     }
 
     public static void playImpact(ShotResult result, boolean shielded) {
@@ -579,7 +726,7 @@ public final class SoundEngine {
     }
 
     private static void transitionToTrack(BgmTrack target) {
-        if (!musicEnabled || audioDeviceFailed) return;
+        if (SILENT_MODE || !musicEnabled || audioDeviceFailed) return;
         if (currentLoadedTrack == target && currentBgmClip != null) {
             if (!currentBgmClip.isRunning()) {
                 currentBgmLevel = 1.0f;
@@ -654,12 +801,51 @@ public final class SoundEngine {
         }
     }
 
+    private static void duckTemporarily(float targetDuckDb, long holdMs) {
+        if (SILENT_MODE || !musicEnabled) return;
+        AUDIO_EXEC.execute(() -> {
+            if (unduckFuture != null && !unduckFuture.isDone() && duckDb < targetDuckDb) {
+                return;
+            }
+            duckDb = targetDuckDb;
+            updateCurrentBgmGain();
+            if (unduckFuture != null) {
+                unduckFuture.cancel(false);
+            }
+            unduckFuture = AUDIO_EXEC.schedule(() -> {
+                duckDb = 0.0f;
+                updateCurrentBgmGain();
+            }, Math.max(250L, holdMs), TimeUnit.MILLISECONDS);
+        });
+    }
+
+    private static long sfxCooldownMs(Sfx sfx) {
+        return switch (sfx) {
+            case WORLD_BEACON -> 3400L;
+            case WORLD_VOLCANO, WORLD_PORTAL, WORLD_METEOR, DRAGON_CRY, WIND_GUST, THUNDER_CRACK, THUNDER_RUMBLE -> 2400L;
+            case TITAN_SKILL_POV_GODZILLA, TITAN_SKILL_POV_GHIDORAH, TITAN_SKILL_POV_MOTHRA, SUPERSHIP_HYPERCANNON -> 160L;
+            case TITAN_GODZILLA_ROAR, TITAN_GHIDORAH_ROAR, TITAN_MOTHRA_ROAR, ZOMBIE_ROAR -> 1400L;
+            case ZOMBIE_SPIT, ZOMBIE_SPORE, ZOMBIE_CURSE, ZOMBIE_BLOOD_CANNON, ZOMBIE_BAT_SWARM -> 110L;
+            case ZOMBIE_HIT -> 95L;
+            case HIT, MISS, SHIELD_BLOCK, SHIELD_CRACK, UI_CLICK,
+                 FIRE_CANNON, FIRE_TORPEDO, FIRE_MISSILE, FIRE_AIRSTRIKE,
+                 MAGIC_FIRE, MAGIC_LIGHTNING, MAGIC_SONAR, MAGIC_FROST -> 95L;
+            default -> 70L;
+        };
+    }
+
     private static void triggerSfxInternal(Sfx sfx) {
         triggerSfxInternal(sfx, 0.0f);
     }
 
     private static void triggerSfxInternal(Sfx sfx, float extraGainDb) {
-        if (!sfxEnabled || audioDeviceFailed) return;
+        if (SILENT_MODE || sfx == null || !sfxEnabled || audioDeviceFailed) return;
+        long now = System.currentTimeMillis();
+        Long last = SFX_LAST_PLAYED_MS.get(sfx);
+        if (last != null && (now - last) < sfxCooldownMs(sfx)) {
+            return;
+        }
+        SFX_LAST_PLAYED_MS.put(sfx, now);
         PcmData data = loadSfxData(sfx);
         if (data == null) return;
 
@@ -700,11 +886,12 @@ public final class SoundEngine {
     }
 
     private static void syncAmbientLoopsInternal() {
-        if (!environmentAudioActive || !sfxEnabled || audioDeviceFailed) {
+        if (SILENT_MODE || !environmentAudioActive || !sfxEnabled || audioDeviceFailed) {
             stopAmbientLoopsInternal();
             return;
         }
         AmbientBed desiredBed = resolveAmbientBed(activeEnvTheme);
+        float battleAttenDb = inBattle ? -6.5f : 0.0f;
         if (currentLoadedAmb != desiredBed || currentAmbClip == null || !currentAmbClip.isOpen()) {
             closeClipQuietly(currentAmbClip);
             currentAmbClip = null;
@@ -714,7 +901,7 @@ public final class SoundEngine {
                 try {
                     currentAmbClip = AudioSystem.getClip();
                     currentAmbClip.open(pcm.format, pcm.pcm, 0, pcm.pcm.length);
-                    setGainLinear(currentAmbClip, desiredBed.baseGainDb, (float) Math.max(0.45, 1.0 - activeStormLevel * 0.40));
+                    setGainLinear(currentAmbClip, desiredBed.baseGainDb + battleAttenDb, (float) Math.max(0.45, 1.0 - activeStormLevel * 0.40));
                     currentAmbClip.loop(Clip.LOOP_CONTINUOUSLY);
                 } catch (LineUnavailableException | IllegalArgumentException | SecurityException ex) {
                     closeClipQuietly(currentAmbClip);
@@ -725,7 +912,7 @@ public final class SoundEngine {
             }
         } else {
             if (!currentAmbClip.isRunning()) currentAmbClip.loop(Clip.LOOP_CONTINUOUSLY);
-            setGainLinear(currentAmbClip, desiredBed.baseGainDb, (float) Math.max(0.45, 1.0 - activeStormLevel * 0.40));
+            setGainLinear(currentAmbClip, desiredBed.baseGainDb + battleAttenDb, (float) Math.max(0.45, 1.0 - activeStormLevel * 0.40));
         }
 
         if (activeStormLevel > 0.05) {
@@ -735,7 +922,7 @@ public final class SoundEngine {
                     try {
                         stormAmbClip = AudioSystem.getClip();
                         stormAmbClip.open(stormPcm.format, stormPcm.pcm, 0, stormPcm.pcm.length);
-                        setGainLinear(stormAmbClip, AmbientBed.STORM_GALE.baseGainDb, (float) activeStormLevel);
+                        setGainLinear(stormAmbClip, AmbientBed.STORM_GALE.baseGainDb + battleAttenDb, (float) activeStormLevel);
                         stormAmbClip.loop(Clip.LOOP_CONTINUOUSLY);
                     } catch (LineUnavailableException | IllegalArgumentException | SecurityException ex) {
                         closeClipQuietly(stormAmbClip);
@@ -744,7 +931,7 @@ public final class SoundEngine {
                 }
             } else {
                 if (!stormAmbClip.isRunning()) stormAmbClip.loop(Clip.LOOP_CONTINUOUSLY);
-                setGainLinear(stormAmbClip, AmbientBed.STORM_GALE.baseGainDb, (float) activeStormLevel);
+                setGainLinear(stormAmbClip, AmbientBed.STORM_GALE.baseGainDb + battleAttenDb, (float) activeStormLevel);
             }
         } else if (stormAmbClip != null && stormAmbClip.isRunning()) {
             stormAmbClip.stop();
@@ -761,6 +948,7 @@ public final class SoundEngine {
     }
 
     private static void ensureEnvTickerStarted() {
+        if (SILENT_MODE) return;
         if (envTickerFuture != null && !envTickerFuture.isCancelled()) return;
         envTickerFuture = AUDIO_EXEC.scheduleAtFixedRate(SoundEngine::tickAmbientEvents, 4500, 7500, TimeUnit.MILLISECONDS);
     }
@@ -773,7 +961,7 @@ public final class SoundEngine {
     }
 
     private static void tickAmbientEvents() {
-        if (!environmentAudioActive || !sfxEnabled || audioDeviceFailed) return;
+        if (SILENT_MODE || !environmentAudioActive || !sfxEnabled || audioDeviceFailed || inBattle || ZombieMode.isTitanMode()) return;
         envEventCounter++;
         int slot = envEventCounter % 3;
         if (slot == 0) {

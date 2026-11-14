@@ -36,7 +36,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 
@@ -55,15 +57,44 @@ public class BoardPanel extends JPanel {
     private boolean showShips = true;
     private boolean zombieFleet;
     private TitanMode.TitanBoss titanBoss;
-    private int titanHp = 20;
-    private int titanMaxHp = 20;
+    private int titanHp = 260;
+    private int titanMaxHp = 260;
+    private int titanEnrageBarrierHp;
+    private int titanEnrageBarrierMaxHp;
     private boolean titanEnraged;
+    private int titanOffR;
+    private int titanOffC;
+    private double titanVisOffR;
+    private double titanVisOffC;
+    private double titanCastProgress;
+    private String titanCastLabel = "";
+    private TitanMode.TitanPart titanChargingPart;
+    private int titanStaggerGauge;
+    private int titanStaggerThreshold = 65;
+    private boolean titanStaggered;
+    private boolean titanSubmerged;
+    private boolean titanChilled;
+    private boolean titanExposed;
+    private int titanBurnStacks;
+    private boolean titanHeadBroken;
+    private boolean titanCoreBroken;
+    private boolean titanBodyBroken;
+    private int titanHeadHp = 78, titanHeadMax = 78;
+    private int titanCoreHp = 91, titanCoreMax = 91;
+    private int titanBodyHp = 117, titanBodyMax = 117;
+    private boolean titanDpsCheckActive;
+    private boolean titanAntiMissileReady;
+    private long titanAntiMissileCdMs;
+    private String titanAntiMissileTag = "";
     private long titanChargeUntilMs;
     private long titanHitFlashUntilMs;
     private long titanEmergenceStartMs;
     private long titanEmergenceUntilMs;
     private Color titanHitFlashColor = UiTokens.ACCENT_SIGNAL;
     private final List<WaterDrop> titanWaterDrops = new ArrayList<>();
+    private final List<SeveredLimbFx> severedLimbs = new ArrayList<>();
+    private final java.util.EnumMap<TitanMode.TitanPart, Long> lastDetachedMs = new java.util.EnumMap<>(TitanMode.TitanPart.class);
+    private long lastLimbStepMs;
     private final Random titanWaterRng = new Random(77L);
     private long lastWaterDropSpawnMs;
     private boolean interactive;
@@ -106,6 +137,15 @@ public class BoardPanel extends JPanel {
     private final List<ShieldBlockAnim> shieldBlocks = new ArrayList<>();
     private final List<ShieldCrack> shieldCracks = new ArrayList<>();
     private final List<ImpactZone> impactZones = new ArrayList<>();
+    private final List<SeaAnomaly> seaAnomalies = new ArrayList<>();
+    private final Map<Integer, TitanMode.TitanBoss> bossCellScars = new HashMap<>();
+    private List<int[]> telegraphCells = List.of();
+    private double telegraphProgress;
+    private Color telegraphAccent = UiTokens.STATUS_DANGER;
+    private List<TitanBattleController.HazardTile> hazardTiles = List.of();
+    private List<TitanBattleController.ArenaProp> arenaProps = List.of();
+    private ShipType selectedDodgeShip;
+    private final List<FloatingPopup> floatingPopups = new ArrayList<>();
     private final Timer fxTimer;
     private double shakeAmplitude;
     private double shakePhase;
@@ -126,12 +166,15 @@ public class BoardPanel extends JPanel {
     private boolean cacheZombieFleet;
     private TitanMode.TitanBoss cacheTitanBoss;
     private OceanMapBackdrop.MapTheme cacheMapTheme;
+    private boolean cacheArenaPhase2;
     private String cacheTitle;
     private boolean ambientStageDriven;
     private final byte[] cacheCells = new byte[Board.SIZE * Board.SIZE];
     private final byte[] scratchCells = new byte[Board.SIZE * Board.SIZE];
     private BiConsumer<Integer, Integer> onCellClick;
     private BiConsumer<Integer, Integer> onCellHover;
+    private BiConsumer<Integer, Integer> onRightCellClick;
+    private Runnable onRightClick;
 
     public BoardPanel(Board board) {
         this(board, "Bảng Tọa Độ 10×10", true);
@@ -170,15 +213,25 @@ public class BoardPanel extends JPanel {
 
     private void ensureFxTimerState() {
         long now = System.currentTimeMillis();
+        boolean hasSeaAnomalyBurst = false;
+        for (SeaAnomaly sa : seaAnomalies) {
+            if (now < sa.burstUntilMs) {
+                hasSeaAnomalyBurst = true;
+                break;
+            }
+        }
         boolean hasActive = !activeEffects.isEmpty() || !shipFires.isEmpty()
                 || !shipHits.isEmpty() || !shieldBlocks.isEmpty() || shakeAmplitude > 0.25
                 || titanChargeUntilMs > now || titanHitFlashUntilMs > now
                 || titanEmergenceUntilMs > now || !titanWaterDrops.isEmpty()
+                || !severedLimbs.isEmpty()
+                || hasSeaAnomalyBurst
                 || waterBlowUntilMs > now
                 || shieldShatterUntilMs > now
                 || (fullMapShield && (now - fullMapShieldStartMs) < FULL_SHIELD_RISE_MS)
                 || (superShipRow >= 0 && (now - superShipStartMs) < 1200L);
         boolean hasAmbientZones = fullMapShield || !shieldedCells.isEmpty() || !impactZones.isEmpty()
+                || !seaAnomalies.isEmpty()
                 || titanBoss != null || superShipRow >= 0;
         if (hasActive) {
             fxTimer.setDelay(FX_TICK_MS);
@@ -209,6 +262,7 @@ public class BoardPanel extends JPanel {
         shipFires.removeIf(anim -> (now - anim.startMs) >= SHIP_FIRE_DURATION_MS);
         shipHits.removeIf(anim -> (now - anim.startMs) >= SHIP_HIT_DURATION_MS);
         shieldBlocks.removeIf(anim -> (now - anim.startMs) >= SHIELD_BLOCK_DURATION_MS);
+        seaAnomalies.removeIf(a -> now >= a.endMs);
 
         if (shakeAmplitude > 0.25) {
             shakeAmplitude *= 0.78;
@@ -244,6 +298,33 @@ public class BoardPanel extends JPanel {
                 titanWaterDrops.remove(i);
             }
         }
+        double dt = lastLimbStepMs == 0L ? 0.036 : Math.max(0.01, Math.min(0.06, (now - lastLimbStepMs) / 1000.0));
+        lastLimbStepMs = now;
+        for (int i = severedLimbs.size() - 1; i >= 0; i--) {
+            SeveredLimbFx limb = severedLimbs.get(i);
+            if (now >= limb.endMs) {
+                severedLimbs.remove(i);
+                continue;
+            }
+            limb.x += limb.vx * dt;
+            limb.y += limb.vy * dt;
+            limb.vy += (limb.splashed ? 95.0 : 410.0) * dt;
+            limb.angle += limb.rotSpeed * dt;
+            if (!limb.splashed && limb.y >= limb.waterY) {
+                limb.splashed = true;
+                limb.vy *= 0.22;
+                limb.vx *= 0.42;
+                limb.rotSpeed *= 0.30;
+                spawnTitanWaterDropsAt(limb.x - 24.0, 48.0, limb.waterY, 16, 1.15, now);
+            }
+        }
+        titanVisOffR += (titanOffR - titanVisOffR) * 0.22;
+        titanVisOffC += (titanOffC - titanVisOffC) * 0.22;
+        if (Math.abs(titanOffR - titanVisOffR) < 0.01) titanVisOffR = titanOffR;
+        if (Math.abs(titanOffC - titanVisOffC) < 0.01) titanVisOffC = titanOffC;
+        for (int i = floatingPopups.size() - 1; i >= 0; i--) {
+            if (now >= floatingPopups.get(i).endMs) floatingPopups.remove(i);
+        }
     }
 
     private void spawnTitanWaterDropsAt(double bx, double bw, double waterY, int count, double power, long now) {
@@ -268,7 +349,19 @@ public class BoardPanel extends JPanel {
             @Override public void mouseDragged(MouseEvent event) { updateHover(event.getX(), event.getY()); }
             @Override public void mouseExited(MouseEvent event) { setHover(-1, -1); }
             @Override public void mouseClicked(MouseEvent event) {
-                if (interactive && event.getButton() == MouseEvent.BUTTON1) {
+                if (!interactive) return;
+                if (SwingUtilities.isRightMouseButton(event) || event.getButton() == MouseEvent.BUTTON3) {
+                    int[] rCell = cellAt(event.getX(), event.getY());
+                    if (onRightCellClick != null && rCell != null) {
+                        requestFocusInWindow();
+                        onRightCellClick.accept(rCell[0], rCell[1]);
+                    } else if (onRightClick != null) {
+                        requestFocusInWindow();
+                        onRightClick.run();
+                    }
+                    return;
+                }
+                if (event.getButton() == MouseEvent.BUTTON1) {
                     int[] cell = cellAt(event.getX(), event.getY());
                     if (cell != null) {
                         requestFocusInWindow();
@@ -405,6 +498,7 @@ public class BoardPanel extends JPanel {
         int effHoverR = interactive ? hoveredRow : -1;
         int effHoverC = interactive ? hoveredCol : -1;
         OceanMapBackdrop.MapTheme theme = OceanMapBackdrop.getMapTheme();
+        boolean phase2 = OceanMapBackdrop.isTitanPhase2();
 
         int idx = 0;
         for (int row = 0; row < Board.SIZE; row++) {
@@ -426,6 +520,7 @@ public class BoardPanel extends JPanel {
                 || cacheZombieFleet != zombieFleet
                 || cacheTitanBoss != titanBoss
                 || cacheMapTheme != theme
+                || cacheArenaPhase2 != phase2
                 || !Objects.equals(cacheTitle, title)
                 || !Arrays.equals(cacheCells, scratchCells);
         if (!dirty) return;
@@ -457,6 +552,7 @@ public class BoardPanel extends JPanel {
         cacheZombieFleet = zombieFleet;
         cacheTitanBoss = titanBoss;
         cacheMapTheme = theme;
+        cacheArenaPhase2 = phase2;
         cacheTitle = title;
         System.arraycopy(scratchCells, 0, cacheCells, 0, scratchCells.length);
     }
@@ -503,15 +599,27 @@ public class BoardPanel extends JPanel {
         // Pass 1b: Subtle deep-ocean radial glow + modern-arcane radar bezel & corner brackets
         int gridPx = s * Board.SIZE;
         Paint prevPaint = g.getPaint();
+        boolean phase2 = OceanMapBackdrop.isTitanPhase2();
+        Color centerGlow = phase2 ? new Color(244, 63, 94, 34) : new Color(56, 189, 248, 22);
+        Color edgeShade = phase2 ? new Color(36, 8, 18, 92) : new Color(4, 10, 20, 74);
         g.setPaint(new RadialGradientPaint(
                 layout.gridX + gridPx * 0.5f, layout.gridY + gridPx * 0.5f, Math.max(1f, gridPx * 0.72f),
                 new float[]{0f, 0.72f, 1f},
-                new Color[]{new Color(56, 189, 248, 22), new Color(15, 36, 59, 0), new Color(4, 10, 20, 74)}
+                new Color[]{centerGlow, new Color(15, 36, 59, 0), edgeShade}
         ));
         g.fillRect(layout.gridX, layout.gridY, gridPx, gridPx);
         g.setPaint(prevPaint);
+        if (phase2) {
+            Composite p2Comp = g.getComposite();
+            g.setComposite(alphaComp(0.22f));
+            g.setColor(OceanMapBackdrop.getMapTheme().accent);
+            g.setStroke(roundStroke(1.25f));
+            g.drawLine(layout.gridX + 4, layout.gridY + gridPx / 3, layout.gridX + gridPx / 3, layout.gridY + 4);
+            g.drawLine(layout.gridX + (gridPx * 2) / 3, layout.gridY + gridPx - 4, layout.gridX + gridPx - 4, layout.gridY + (gridPx * 2) / 3);
+            g.setComposite(p2Comp);
+        }
         g.setColor(OceanMapBackdrop.boardBorderColor(zombieFleet));
-        g.setStroke(new BasicStroke(1.5f));
+        g.setStroke(new BasicStroke(phase2 ? 2.0f : 1.5f));
         g.drawRect(layout.gridX, layout.gridY, gridPx, gridPx);
         drawHudCornerBrackets(g, layout.gridX - 3, layout.gridY - 3, gridPx + 6, Math.max(10, s / 3));
     }
@@ -561,6 +669,14 @@ public class BoardPanel extends JPanel {
         if (!impactZones.isEmpty()) {
             drawImpactZoneFloors(g, layout, now);
         }
+        // Pass 1c-2: Sea-Terrain Anomaly base craters, seismic sea tremors & black-hole tidal suction
+        if (!seaAnomalies.isEmpty()) {
+            drawSeaAnomalyFloors(g, layout, now);
+        }
+        // Pass 1d: Under-ship Interactive Arena Stage Nodes (Current Lanes, Fissures, Mana Pylons, Leynodes, Gravity Wells)
+        if (!arenaProps.isEmpty()) {
+            drawUnderShipArenaNodes(g, layout, now);
+        }
 
         // Pass 2: Floating ocean drop shadows + UHD Blender 3D ship sprites (with per-ship recoil & hit tremor!)
         if (titanBoss != null) {
@@ -585,7 +701,9 @@ public class BoardPanel extends JPanel {
                         : SpriteAssets.getShipShadowForLength(span.length, span.horizontal);
             }
             if (sprite != null) {
-                int[] animOff = computeShipOffset(span, now);
+                int spanHits = countSpanHits(span);
+                boolean spanAlive = isSpanAlive(span);
+                int[] animOff = computeShipOffset(span, spanHits, spanAlive, now);
                 int sx = layout.gridX + span.col * s + animOff[0];
                 int sy = layout.gridY + span.row * s + animOff[1];
                 int sw = span.horizontal ? span.length * s : s;
@@ -604,14 +722,35 @@ public class BoardPanel extends JPanel {
                 int wingExpand = superShip ? Math.max(3, s / 5) : 0;
                 int lenExpand = superShip ? (span.length <= 2 ? Math.max(8, s / 2) : Math.max(4, s / 6)) : 0;
                 int dx = sx + pad - (span.horizontal ? lenExpand / 2 : wingExpand);
-                int dy = sy + pad - (span.horizontal ? wingExpand : lenExpand / 2);
+                int dy = sy + pad - (span.horizontal ? wingExpand : lenExpand / 2) + (!spanAlive ? Math.max(2, s / 10) : 0);
                 int dw = sw - pad * 2 + (span.horizontal ? lenExpand : wingExpand * 2);
                 int dh = sh - pad * 2 + (span.horizontal ? wingExpand * 2 : lenExpand);
+
+                AffineTransform prevShipTx = g.getTransform();
+                if (!spanAlive) {
+                    double tilt = ((span.col % 2 == 0) ? 1.0 : -1.0) * Math.toRadians(span.horizontal ? 4.8 : 6.2);
+                    g.rotate(tilt, dx + dw * 0.5, dy + dh * 0.5);
+                }
                 if (shadow != null) {
                     int off = Math.max(2, s / 14);
                     g.drawImage(shadow, dx + off / 2, dy + off / 2, dw, dh, null);
                 }
                 SpriteAssets.drawSharp(g, sprite, dx, dy, dw, dh);
+                if (showShips && !spanAlive) {
+                    Composite sunkComp = g.getComposite();
+                    g.setComposite(AlphaComposite.SrcOver.derive(0.60f));
+                    g.setColor(new Color(10, 12, 18));
+                    g.fillRoundRect(dx + 1, dy + 1, dw - 2, dh - 2, s / 3, s / 3);
+                    g.setComposite(AlphaComposite.SrcOver.derive(0.50f));
+                    g.setColor(new Color(0xDC2626));
+                    g.setStroke(roundStroke(1.8f));
+                    g.drawRoundRect(dx + 1, dy + 1, dw - 2, dh - 2, s / 3, s / 3);
+                    g.setComposite(sunkComp);
+                }
+                if (spanHits > 0 || !spanAlive) {
+                    drawDamagedAndSunkenShipDetails(g, layout, span, dx, dy, dw, dh, animOff[0], animOff[1], s, spanAlive, spanHits, now);
+                }
+                g.setTransform(prevShipTx);
                 drawShipImpactFlashAndLaunchDeck(g, span, sx, sy, sw, sh, s, now);
                 if (superShip) {
                     drawSuperShipArmorPips(g, layout, span, s, now);
@@ -627,11 +766,18 @@ public class BoardPanel extends JPanel {
                 CellState state = cellStateAt(row, col);
                 if (coveredBySprite[row][col] && state == CellState.HIT) {
                     Composite prev = g.getComposite();
-                    g.setComposite(AlphaComposite.SrcOver.derive(0.55f));
+                    g.setComposite(AlphaComposite.SrcOver.derive(0.14f));
                     g.setColor(UiTokens.STATE_HIT);
                     g.fillRect(x + 1, y + 1, s - 1, s - 1);
+                    g.setComposite(AlphaComposite.SrcOver.derive(0.58f));
+                    g.setColor(new Color(0xFCA5A5));
+                    g.setStroke(roundStroke(1.3f));
+                    int rHit = Math.max(4, s / 4);
+                    int mx = x + s / 2;
+                    int my = y + s / 2;
+                    g.drawLine(mx - rHit, my - rHit, mx + rHit, my + rHit);
+                    g.drawLine(mx + rHit, my - rHit, mx - rHit, my + rHit);
                     g.setComposite(prev);
-                    drawHit(g, x + s / 2, y + s / 2, s);
                 }
                 if (containsCell(targetPreviewCells, row, col)) drawTargetPreview(g, x, y, s);
                 if (containsCell(revealedCells, row, col)) drawRevealedCell(g, x, y, s);
@@ -649,6 +795,14 @@ public class BoardPanel extends JPanel {
             }
         }
 
+        // Pass 3.4: Raid Hazard Tiles (BURN / SHOCK / SILK_SLOW), Surface Arena Props, Telegraphs & Selected Ship Frame
+        if (!arenaProps.isEmpty()) {
+            drawSurfaceArenaProps(g, layout, now);
+        }
+        if (!hazardTiles.isEmpty() || !telegraphCells.isEmpty() || selectedDodgeShip != null) {
+            drawRaidBoardOverlays(g, layout, shipSpans, now);
+        }
+
         // Pass 3.5: Subtle weather reactivity on sea grid (raindrop ripples, lightning glare, winter frost glints)
         // + Active Boss physical water-blow foam streaks across board cells
         drawWeatherEffectsOnBoard(g, layout);
@@ -662,6 +816,11 @@ public class BoardPanel extends JPanel {
         // Pass 4.4: Animated 3x3 Impact Zone perimeter frame & elemental particle gleam
         if (!impactZones.isEmpty()) {
             drawImpactZonePerimeters(g, layout, now);
+        }
+
+        // Pass 4.4b: Boss Water/Sea Terrain Aftermath Domes (Godzilla water mushroom, Ghidorah black hole, Mothra solar orb)
+        if (!seaAnomalies.isEmpty()) {
+            drawSeaAnomalyDomes(g, layout, now);
         }
 
         // Pass 4.5: Animated 3D Magic Shield Barrier (khiên phép thuật), Stress Cracks & Deflect Flares
@@ -818,6 +977,9 @@ public class BoardPanel extends JPanel {
             }
             g.setComposite(prevComp);
             g.setStroke(prevStroke);
+        }
+        if (!floatingPopups.isEmpty()) {
+            drawFloatingPopups(g, layout, now);
         }
     }
 
@@ -1060,9 +1222,34 @@ public class BoardPanel extends JPanel {
         };
     }
 
-    private int[] computeShipOffset(ShipSpan span, long now) {
+    private int countSpanHits(ShipSpan span) {
+        if (board == null && cellStateOverride == null) return 0;
+        int hits = 0;
+        for (int i = 0; i < span.length; i++) {
+            int r = span.row + (span.horizontal ? 0 : i);
+            int c = span.col + (span.horizontal ? i : 0);
+            if (r >= 0 && r < Board.SIZE && c >= 0 && c < Board.SIZE && cellStateAt(r, c) == CellState.HIT) {
+                hits++;
+            }
+        }
+        return hits;
+    }
+
+    private int[] computeShipOffset(ShipSpan span, int spanHits, boolean alive, long now) {
         double dx = 0.0;
         double dy = 0.0;
+        double tSec = (now % 600_000L) / 1000.0;
+        if (spanHits > 0 && alive) {
+            double dmg = spanHits / Math.max(1.0, (double) span.length);
+            double listAmp = 0.8 + dmg * 2.2;
+            double heave = Math.sin(tSec * (2.6 + dmg * 1.4) + span.row * 0.9 + span.col * 0.7) * listAmp;
+            if (span.horizontal) {
+                dy += heave + dmg * 1.6;
+            } else {
+                dx += heave * 0.85;
+                dy += dmg * 1.8;
+            }
+        }
         for (ShipFireAnim anim : shipFires) {
             if (!anim.matches(span)) continue;
             double p = Math.max(0.0, Math.min(1.0, (now - anim.startMs) / SHIP_FIRE_DURATION_MS));
@@ -1086,6 +1273,137 @@ public class BoardPanel extends JPanel {
             dx += Math.cos(p * Math.PI * 5.0) * (1.0 - p) * 1.8;
         }
         return new int[]{(int) Math.round(dx), (int) Math.round(dy)};
+    }
+
+    private void drawDamagedAndSunkenShipDetails(
+            Graphics2D g,
+            Layout layout,
+            ShipSpan span,
+            int dx,
+            int dy,
+            int dw,
+            int dh,
+            int offX,
+            int offY,
+            int s,
+            boolean alive,
+            int spanHits,
+            long now
+    ) {
+        double tSec = (now % 600_000L) / 1000.0;
+        double dmgRatio = spanHits / Math.max(1.0, (double) span.length);
+        Composite prevComp = g.getComposite();
+        Stroke prevStroke = g.getStroke();
+
+        if (!alive) {
+            // Charred oil-slick & snapped-keel hull breach fracture across the sunken wreck
+            g.setComposite(alphaComp(0.42));
+            g.setColor(new Color(8, 12, 20));
+            g.fillOval(dx - s / 5, dy - s / 6, dw + (s * 2) / 5, dh + s / 3);
+            int mx = dx + dw / 2;
+            int my = dy + dh / 2;
+            g.setComposite(alphaComp(0.86));
+            g.setColor(new Color(0xF97316));
+            g.setStroke(roundStroke(2.0f));
+            if (span.horizontal) {
+                g.drawLine(mx - s / 5, dy + 2, mx + s / 8, dy + dh - 2);
+                g.drawLine(mx + s / 8, dy + dh / 2, mx + s / 3, dy + 3);
+            } else {
+                g.drawLine(dx + 2, my - s / 5, dx + dw - 2, my + s / 8);
+                g.drawLine(dx + dw / 2, my + s / 8, dx + 3, my + s / 3);
+            }
+            // Rising air bubbles escaping the submerging hull
+            for (int b = 0; b < 4; b++) {
+                double bp = (tSec * 0.72 + b * 0.25 + span.col * 0.13) % 1.0;
+                int bx = dx + (int) Math.round(dw * (0.20 + b * 0.20) + Math.sin(tSec * 4.2 + b) * 3.0);
+                int by = dy + (int) Math.round(dh * 0.55 - bp * s * 0.75);
+                float ba = (float) (Math.sin(bp * Math.PI) * 0.78);
+                g.setComposite(alphaComp(ba));
+                g.setColor(new Color(0xBAE6FD));
+                SpriteAssets.drawVoxelRing(g, bx, by, Math.max(3, s * 0.14), 2, false);
+            }
+        }
+
+        // Per-cell battle damage: charred blast craters, glowing armor cracks, smoke & embers (and Boss scars!)
+        for (int i = 0; i < span.length; i++) {
+            int r = span.row + (span.horizontal ? 0 : i);
+            int c = span.col + (span.horizontal ? i : 0);
+            if (r < 0 || r >= Board.SIZE || c < 0 || c >= Board.SIZE) continue;
+            if (alive && cellStateAt(r, c) != CellState.HIT) continue;
+
+            TitanMode.TitanBoss scarBoss = bossCellScars.get(r * Board.SIZE + c);
+            int cx = layout.gridX + c * s + offX + s / 2;
+            int cy = layout.gridY + r * s + offY + s / 2;
+
+            // Scorch blast crater on deck
+            int scorchR = Math.max(6, (int) (s * 0.38));
+            g.setComposite(alphaComp(alive ? 0.62 : 0.74));
+            g.setColor(new Color(18, 12, 10));
+            g.fillOval(cx - scorchR, cy - scorchR, scorchR * 2, scorchR * 2);
+
+            Color crackCol = scarBoss == null
+                    ? new Color(0xF97316)
+                    : switch (scarBoss) {
+                        case GODZILLA -> new Color(0xFB923C);
+                        case GHIDORAH -> new Color(0xFACC15);
+                        case MOTHRA -> new Color(0x34D399);
+                    };
+            Color coreSpark = scarBoss == TitanMode.TitanBoss.GHIDORAH
+                    ? new Color(0xC084FC)
+                    : (scarBoss == TitanMode.TitanBoss.MOTHRA ? new Color(0xFEF08A) : new Color(0xFEF08A));
+
+            // Structural deck cracks & Boss-themed elemental fractures
+            g.setComposite(alphaComp(0.88));
+            g.setColor(crackCol);
+            g.setStroke(roundStroke(1.8f));
+            int cr = Math.max(5, (int) (s * 0.34));
+            g.drawLine(cx - cr, cy - cr / 2, cx, cy);
+            g.drawLine(cx, cy, cx + cr, cy + cr / 3);
+            g.drawLine(cx, cy, cx - cr / 3, cy + cr);
+            if (scarBoss == TitanMode.TitanBoss.GHIDORAH) {
+                double jx = Math.sin(tSec * 24.0 + i * 3.1) * s * 0.22;
+                double jy = Math.cos(tSec * 21.0 + i * 2.3) * s * 0.22;
+                g.setColor(coreSpark);
+                g.setStroke(roundStroke(1.4f));
+                g.drawLine(cx, cy, cx + (int) jx, cy + (int) jy);
+                SpriteAssets.drawVoxelCube(g, cx + (int) jx, cy + (int) jy, 3, Color.WHITE, new Color(0xFACC15));
+            } else {
+                drawGlow(g, crackCol, cx, cy, s * 0.48, alive ? 0.42f : 0.30f, false);
+            }
+
+            // Rising battle smoke & sparks billowing off hit hull sections
+            int puffs = alive ? (dmgRatio >= 0.5 ? 3 : 2) : 2;
+            for (int p = 0; p < puffs; p++) {
+                double cycle = (tSec * (0.68 + p * 0.14) + i * 0.31 + p * 0.37) % 1.0;
+                int px = cx + (int) Math.round(Math.sin(tSec * 2.8 + p * 2.0 + i) * s * 0.18 + (p - 1) * s * 0.12);
+                int py = cy - (int) Math.round(cycle * s * 0.65);
+                float pa = (float) (Math.sin(cycle * Math.PI) * (alive ? 0.68 : 0.48));
+                if (pa <= 0.03f) continue;
+                int smokeRad = Math.max(4, (int) Math.round(s * (0.14 + cycle * 0.16)));
+                g.setComposite(alphaComp(pa * 0.72));
+                g.setColor(new Color(38, 42, 52));
+                g.fillOval(px - smokeRad, py - smokeRad, smokeRad * 2, smokeRad * 2);
+                if (alive && p == 0) {
+                    g.setComposite(alphaComp(pa));
+                    SpriteAssets.drawVoxelCube(g, px, py + 2, 3, coreSpark, crackCol);
+                }
+            }
+        }
+
+        // Critical damage distress beacon & warning hull contour when >= 50% damaged (while still afloat)
+        if (alive && dmgRatio >= 0.5) {
+            float blink = (float) (0.45 + 0.50 * Math.sin(tSec * 7.5));
+            g.setComposite(alphaComp(blink * 0.55));
+            g.setColor(new Color(0xEF4444));
+            g.setStroke(roundStroke(1.8f));
+            g.drawRoundRect(dx, dy, dw, dh, Math.max(4, s / 3), Math.max(4, s / 3));
+            int bx = dx + dw / 2;
+            int by = dy + dh / 2;
+            drawGlow(g, new Color(0xFB7185), bx, by, s * 0.55, blink * 0.58f, false);
+        }
+
+        g.setComposite(prevComp);
+        g.setStroke(prevStroke);
     }
 
     private void drawShipImpactFlashAndLaunchDeck(Graphics2D g, ShipSpan span, int sx, int sy, int sw, int sh, int s, long now) {
@@ -1234,6 +1552,407 @@ public class BoardPanel extends JPanel {
             }
         }
         g.setComposite(prevComp);
+    }
+
+    private double seaAnomalyFade(SeaAnomaly a, long now) {
+        double fadeIn = Math.min(1.0, Math.max(0.0, (now - a.startMs) / 260.0));
+        double fadeOut = Math.min(1.0, Math.max(0.0, (a.endMs - now) / 1800.0));
+        return fadeIn * fadeOut;
+    }
+
+    private void drawSeaAnomalyFloors(Graphics2D g, Layout layout, long now) {
+        int s = layout.cellSize;
+        double tSec = (now % 600_000L) / 1000.0;
+        Composite prevComp = g.getComposite();
+        Stroke prevStroke = g.getStroke();
+
+        for (SeaAnomaly a : seaAnomalies) {
+            double fade = seaAnomalyFade(a, now);
+            if (fade <= 0.02) continue;
+            boolean bursting = now < a.burstUntilMs;
+            double burstBoost = bursting ? (1.0 - Math.max(0.0, (now - a.startMs) / (double) Math.max(1L, a.burstUntilMs - a.startMs))) : 0.0;
+            int cx = layout.gridX + a.anchorCol * s + s / 2;
+            int cy = layout.gridY + a.anchorRow * s + s / 2;
+            double radBase = s * (1.10 + Math.min(0.95, Math.sqrt(a.waterCells.size()) * 0.28));
+
+            if (a.boss == TitanMode.TitanBoss.GODZILLA) {
+                boolean thermal = a.enraged || a.skill == TitanMode.TitanSkill.GZ_MELTDOWN_RIFT;
+                Color coreGlow = thermal ? new Color(0xF97316) : new Color(0x38BDF8);
+                // Trembling boiling sea crater across impacted water tiles
+                for (int[] wc : a.waterCells) {
+                    int tremorPx = bursting ? (int) Math.round(Math.sin(tSec * 28.0 + wc[0] * 3.1 + wc[1] * 4.7) * (1.8 + burstBoost * 2.0)) : 0;
+                    int wx = layout.gridX + wc[1] * s + tremorPx;
+                    int wy = layout.gridY + wc[0] * s - tremorPx / 2;
+                    g.setComposite(alphaComp(fade * 0.44));
+                    g.setColor(new Color(4, 24, 48));
+                    g.fillRoundRect(wx + 2, wy + 2, s - 4, s - 4, 8, 8);
+                    double ripplePhase = (tSec * 1.4 + wc[0] * 0.19 + wc[1] * 0.27) % 1.0;
+                    g.setComposite(alphaComp(fade * (1.0 - ripplePhase) * 0.52));
+                    g.setColor(coreGlow);
+                    SpriteAssets.drawVoxelRing(g, wx + s * 0.5, wy + s * 0.5, s * (0.24 + ripplePhase * 0.34), 2, false);
+                }
+                // Surrounding seismic sea tremor rings propagating beyond impact center
+                for (int ring = 0; ring < 3; ring++) {
+                    double p = (tSec * 0.95 + ring * 0.333) % 1.0;
+                    double rr = radBase * (0.55 + p * 1.35);
+                    g.setComposite(alphaComp(fade * (1.0 - p) * (bursting ? 0.72 : 0.48)));
+                    g.setColor(ring == 0 ? new Color(0xBAE6FD) : coreGlow);
+                    SpriteAssets.drawVoxelRing(g, cx, cy, rr, ring == 0 ? 3 : 2, false);
+                }
+                int abyssR = Math.max(8, (int) (s * 0.62));
+                g.setComposite(alphaComp(fade * 0.68));
+                g.setColor(new Color(3, 12, 26));
+                g.fillOval(cx - abyssR, cy - abyssR, abyssR * 2, abyssR * 2);
+                drawGlow(g, coreGlow, cx, cy, radBase * 1.05, (float) (fade * 0.52), false);
+            } else if (a.boss == TitanMode.TitanBoss.GHIDORAH) {
+                // Dark gravitational abyss floor + golden/purple event-horizon distortion
+                int abyssR = Math.max(10, (int) (s * 0.78));
+                g.setComposite(alphaComp(fade * 0.74));
+                g.setColor(new Color(7, 4, 18));
+                g.fillOval(cx - abyssR, cy - abyssR, abyssR * 2, abyssR * 2);
+                drawGlow(g, new Color(0xFACC15), cx, cy, radBase * 1.25, (float) (fade * 0.46), false);
+                drawGlow(g, new Color(0xA855F7), cx, cy, radBase * 0.95, (float) (fade * 0.38), false);
+
+                // Inward tidal suction ribbons pulling seawater from surrounding cells into center
+                g.setStroke(roundStroke(1.8f));
+                for (int stream = 0; stream < 12; stream++) {
+                    double flowP = 1.0 - ((tSec * 1.35 + stream * 0.083) % 1.0);
+                    double ang = stream * (Math.PI / 6.0) + tSec * 2.2 + (1.0 - flowP) * 1.35;
+                    double rOuter = radBase * (0.45 + flowP * 1.45);
+                    double rInner = Math.max(4.0, rOuter - s * 0.52);
+                    double sx1 = cx + Math.cos(ang) * rOuter;
+                    double sy1 = cy + Math.sin(ang) * rOuter * 0.78;
+                    double sx2 = cx + Math.cos(ang + 0.32) * rInner;
+                    double sy2 = cy + Math.sin(ang + 0.32) * rInner * 0.78;
+                    g.setComposite(alphaComp(fade * Math.sin(flowP * Math.PI) * 0.78));
+                    g.setColor(stream % 3 == 0 ? new Color(0xFEF08A) : new Color(0x7DD3FC));
+                    g.drawLine((int) sx1, (int) sy1, (int) sx2, (int) sy2);
+                }
+                for (int[] wc : a.waterCells) {
+                    int wx = layout.gridX + wc[1] * s + s / 2;
+                    int wy = layout.gridY + wc[0] * s + s / 2;
+                    g.setComposite(alphaComp(fade * 0.42));
+                    g.setColor(new Color(0xFDE047));
+                    g.drawLine(wx, wy, (int) (wx + (cx - wx) * 0.42), (int) (wy + (cy - wy) * 0.42));
+                }
+            } else {
+                // MOTHRA: Celestial sea-lotus harmonic pool with rotating sacred rays & mist
+                for (int[] wc : a.waterCells) {
+                    int wx = layout.gridX + wc[1] * s + 2;
+                    int wy = layout.gridY + wc[0] * s + 2;
+                    g.setComposite(alphaComp(fade * 0.28));
+                    g.setColor(new Color(0x10B981));
+                    g.fillRoundRect(wx, wy, s - 4, s - 4, 8, 8);
+                }
+                drawGlow(g, new Color(0x34D399), cx, cy, radBase * 1.30, (float) (fade * 0.42), false);
+                drawGlow(g, new Color(0xFDE047), cx, cy, radBase * 0.85, (float) (fade * 0.40), false);
+                for (int ring = 0; ring < 3; ring++) {
+                    double p = (tSec * 0.65 + ring * 0.333) % 1.0;
+                    g.setComposite(alphaComp(fade * (1.0 - p) * 0.56));
+                    g.setColor(ring % 2 == 0 ? new Color(0xFEF08A) : new Color(0x34D399));
+                    SpriteAssets.drawVoxelRing(g, cx, cy, radBase * (0.45 + p * 1.15), 2, false);
+                }
+                g.setStroke(roundStroke(1.5f));
+                for (int petal = 0; petal < 6; petal++) {
+                    double ang = petal * (Math.PI / 3.0) + tSec * 0.75;
+                    int px = cx + (int) Math.round(Math.cos(ang) * radBase * 1.05);
+                    int py = cy + (int) Math.round(Math.sin(ang) * radBase * 0.82);
+                    g.setComposite(alphaComp(fade * 0.48));
+                    g.setColor(new Color(0xFEF08A));
+                    g.drawLine(cx, cy, px, py);
+                }
+            }
+        }
+        g.setStroke(prevStroke);
+        g.setComposite(prevComp);
+    }
+
+    private void drawSeaAnomalyDomes(Graphics2D g, Layout layout, long now) {
+        int s = layout.cellSize;
+        double tSec = (now % 600_000L) / 1000.0;
+        Composite prevComp = g.getComposite();
+        Stroke prevStroke = g.getStroke();
+
+        for (SeaAnomaly a : seaAnomalies) {
+            double fade = seaAnomalyFade(a, now);
+            if (fade <= 0.02) continue;
+            double rise = Math.min(1.0, Math.max(0.0, (now - a.startMs) / 420.0));
+            double pop = 1.0 - Math.pow(1.0 - rise, 3.0);
+            boolean bursting = now < a.burstUntilMs;
+            double tremorAmp = bursting ? 2.4 : 0.7;
+            double jx = Math.sin(tSec * 36.0 + a.anchorRow * 1.7) * tremorAmp;
+            double jy = Math.cos(tSec * 31.0 + a.anchorCol * 2.1) * tremorAmp * 0.7;
+            double cx = layout.gridX + a.anchorCol * s + s * 0.5;
+            double cy = layout.gridY + a.anchorRow * s + s * 0.5;
+            double radius = s * (0.85 + Math.min(1.05, Math.sqrt(a.waterCells.size()) * 0.30)) * pop;
+
+            if (a.boss == TitanMode.TitanBoss.GODZILLA) {
+                drawGodzillaWaterMushroomDome(g, a, cx, cy, s, radius, pop, fade, jx, jy, tSec);
+            } else if (a.boss == TitanMode.TitanBoss.GHIDORAH) {
+                drawGhidorahBlackHoleDome(g, a, cx, cy, s, radius, pop, fade, jx, jy, tSec);
+            } else {
+                drawMothraCelestialDome(g, a, cx, cy, s, radius, pop, fade, tSec);
+            }
+        }
+        g.setStroke(prevStroke);
+        g.setComposite(prevComp);
+    }
+
+    private void drawGodzillaWaterMushroomDome(
+            Graphics2D g, SeaAnomaly a, double cx, double cy, int s,
+            double radius, double pop, double fade, double jx, double jy, double tSec
+    ) {
+        boolean thermal = a.enraged || a.skill == TitanMode.TitanSkill.GZ_MELTDOWN_RIFT;
+        Color aquaDeep = new Color(8, 72, 118);
+        Color aquaMid = new Color(14, 134, 186);
+        Color glowTint = thermal ? new Color(0xFB923C) : new Color(0x38BDF8);
+        Color crestCol = new Color(0xE0F2FE);
+        double domeY = cy - s * 0.68 * pop + jy;
+        double domeX = cx + jx;
+
+        // 1. Churning frothy seawater collar & erupting splash fins at sea surface
+        int collarW = Math.max(16, (int) Math.round(radius * 1.65));
+        int collarH = Math.max(8, (int) Math.round(s * 0.46));
+        g.setComposite(alphaComp(fade * 0.56));
+        g.setColor(aquaMid);
+        g.fillOval((int) Math.round(cx - collarW * 0.52), (int) Math.round(cy + s * 0.08 - collarH * 0.5), collarW, collarH);
+        g.setComposite(alphaComp(fade * 0.80));
+        g.setColor(crestCol);
+        g.setStroke(roundStroke(2.0f));
+        g.drawOval((int) Math.round(cx - collarW * 0.52), (int) Math.round(cy + s * 0.08 - collarH * 0.5), collarW, collarH);
+
+        // 2. Translucent roaring water-column trunk with luminous nuclear core inside
+        int trunkW = Math.max(12, (int) Math.round(radius * 0.68));
+        int trunkTop = (int) Math.round(domeY + radius * 0.14);
+        int trunkBot = (int) Math.round(cy + s * 0.12);
+        int trunkH = Math.max(8, trunkBot - trunkTop);
+        g.setComposite(alphaComp(fade * 0.64));
+        g.setColor(aquaDeep);
+        g.fillRoundRect((int) Math.round(domeX - trunkW * 0.5), trunkTop, trunkW, trunkH, trunkW / 2, trunkW / 2);
+        g.setComposite(alphaComp(fade * 0.54));
+        g.setColor(new Color(0x7DD3FC));
+        g.fillRoundRect((int) Math.round(domeX - trunkW * 0.34), trunkTop + 2, Math.max(4, (int) (trunkW * 0.68)), trunkH - 3, 6, 6);
+        g.setComposite(alphaComp(fade * 0.62));
+        g.setColor(glowTint);
+        g.fillRoundRect((int) Math.round(domeX - trunkW * 0.14), trunkTop + 3, Math.max(3, (int) (trunkW * 0.28)), trunkH - 5, 4, 4);
+
+        // 3. Translucent volumetric water mushroom cloud dome (cauliflower spray lobes + Cherenkov interior)
+        int capR = Math.max(14, (int) Math.round(radius * (0.98 + 0.05 * Math.sin(tSec * 6.5))));
+        int capW = (int) Math.round(capR * 2.28);
+        int capH = (int) Math.round(capR * 1.48);
+        int capX = (int) Math.round(domeX - capW * 0.5);
+        int capY = (int) Math.round(domeY - capH * 0.5);
+
+        drawGlow(g, new Color(0x38BDF8), domeX, domeY, capR * 1.85, (float) (fade * 0.58), false);
+        if (thermal) {
+            drawGlow(g, glowTint, domeX, domeY + capH * 0.10, capR * 1.35, (float) (fade * 0.52), false);
+        }
+
+        // Translucent deep seawater outer dome envelope
+        g.setComposite(alphaComp(fade * 0.54));
+        g.setColor(aquaDeep);
+        g.fillOval(capX, capY, capW, capH);
+
+        // Cauliflower billowing seawater mist lobes around the dome silhouette
+        for (int lobe = 0; lobe < 7; lobe++) {
+            double ang = -Math.PI + lobe * (Math.PI / 6.0);
+            double lx = domeX + Math.cos(ang) * capW * 0.36;
+            double ly = domeY + Math.sin(ang) * capH * 0.26;
+            int lr = Math.max(8, (int) Math.round(capR * (0.56 + 0.08 * Math.sin(tSec * 5.0 + lobe))));
+            g.setComposite(alphaComp(fade * (lobe % 2 == 0 ? 0.52 : 0.44)));
+            g.setColor(lobe % 2 == 0 ? aquaMid : new Color(0x38BDF8));
+            g.fillOval((int) Math.round(lx - lr), (int) Math.round(ly - lr * 0.78), lr * 2, (int) Math.round(lr * 1.56));
+        }
+
+        // Inner radiant Cherenkov/thermal vapor heart glowing through the water dome
+        g.setComposite(alphaComp(fade * 0.48));
+        g.setColor(glowTint);
+        g.fillOval((int) Math.round(domeX - capW * 0.26), (int) Math.round(domeY - capH * 0.16),
+                (int) Math.round(capW * 0.52), (int) Math.round(capH * 0.48));
+
+        // Frothy white ocean-foam crown highlights at crest
+        g.setComposite(alphaComp(fade * 0.68));
+        g.setColor(crestCol);
+        g.fillOval((int) Math.round(domeX - capW * 0.34), capY + 2, (int) Math.round(capW * 0.68), Math.max(6, (int) Math.round(capH * 0.28)));
+
+        // Sonic Mach condensation collar ring orbiting stem below the mushroom dome
+        g.setComposite(alphaComp(fade * 0.78));
+        g.setColor(crestCol);
+        g.setStroke(roundStroke(2.0f));
+        g.drawOval((int) Math.round(domeX - capW * 0.60), (int) Math.round(domeY + capH * 0.14),
+                (int) Math.round(capW * 1.20), Math.max(6, (int) Math.round(capH * 0.26)));
+
+        // Cascading seawater mist & droplets raining off the mushroom cap back into the trembling sea
+        for (int d = 0; d < 12; d++) {
+            double dp = (tSec * 1.35 + d * 0.083) % 1.0;
+            double side = (d % 2 == 0 ? 1.0 : -1.0) * (0.24 + ((d * 3) % 5) * 0.16);
+            int dxp = (int) Math.round(domeX + side * capR * (0.95 + dp * 0.38));
+            int dyp = (int) Math.round(domeY + dp * (cy - domeY + s * 0.16));
+            float da = (float) (fade * Math.sin(dp * Math.PI) * 0.88);
+            g.setComposite(alphaComp(da));
+            SpriteAssets.drawVoxelCube(g, dxp, dyp, d % 3 == 0 ? 4 : 3, crestCol, new Color(0x38BDF8));
+        }
+    }
+
+    private void drawGhidorahBlackHoleDome(
+            Graphics2D g, SeaAnomaly a, double cx, double cy, int s,
+            double radius, double pop, double fade, double jx, double jy, double tSec
+    ) {
+        double orbX = cx + jx * 0.55;
+        double orbY = cy - s * 0.46 * pop + jy * 0.55;
+        int outerR = Math.max(12, (int) Math.round(radius * 0.78));
+        int voidR = Math.max(7, (int) Math.round(outerR * 0.58));
+
+        // 1. Curved logarithmic seawater suction spirals actively ripped off surrounding sea into the singularity
+        for (int i = 0; i < 12; i++) {
+            double suck = 1.0 - ((tSec * 1.30 + i * 0.083) % 1.0);
+            double baseTheta = i * (Math.PI / 6.0) + tSec * 2.6;
+            double rStart = s * (0.45 + suck * 1.95);
+            double rMid = Math.max(voidR + 2.0, rStart * 0.66);
+            double rEnd = Math.max(voidR + 1.0, rStart * 0.36);
+            double th1 = baseTheta + (1.0 - suck) * 1.9;
+            double th2 = th1 + 0.38;
+            double th3 = th2 + 0.42;
+            double sx1 = orbX + Math.cos(th1) * rStart;
+            double sy1 = (cy * suck + orbY * (1.0 - suck)) + Math.sin(th1) * rStart * 0.48 * suck;
+            double sx2 = orbX + Math.cos(th2) * rMid;
+            double sy2 = (cy * suck * 0.65 + orbY * (1.0 - suck * 0.65)) + Math.sin(th2) * rMid * 0.42;
+            double sx3 = orbX + Math.cos(th3) * rEnd;
+            double sy3 = orbY + Math.sin(th3) * rEnd * 0.36;
+            float sa = (float) (fade * Math.sin(suck * Math.PI) * 0.88);
+            if (sa <= 0.03f) continue;
+
+            g.setComposite(alphaComp(sa * 0.78));
+            g.setColor(i % 3 == 0 ? new Color(0xFEF08A) : new Color(0x38BDF8));
+            g.setStroke(roundStroke(i % 2 == 0 ? 2.1f : 1.5f));
+            g.drawLine((int) Math.round(sx1), (int) Math.round(sy1), (int) Math.round(sx2), (int) Math.round(sy2));
+            g.drawLine((int) Math.round(sx2), (int) Math.round(sy2), (int) Math.round(sx3), (int) Math.round(sy3));
+            g.setComposite(alphaComp(sa));
+            SpriteAssets.drawVoxelCube(g, (int) Math.round(sx1), (int) Math.round(sy1), i % 2 == 0 ? 4 : 3,
+                    new Color(0xE0F2FE), new Color(0x0284C7));
+        }
+
+        // 2. Radiant translucent golden gravitational lensing aura & tilted accretion rings
+        drawGlow(g, new Color(0xFACC15), orbX, orbY, outerR * 2.45, (float) (fade * 0.74), false);
+        drawGlow(g, new Color(0xA855F7), orbX, orbY, outerR * 1.55, (float) (fade * 0.46), false);
+
+        g.setComposite(alphaComp(fade * 0.44));
+        g.setColor(new Color(0xF59E0B));
+        g.fillOval((int) Math.round(orbX - outerR * 1.15), (int) Math.round(orbY - outerR * 1.15),
+                (int) Math.round(outerR * 2.30), (int) Math.round(outerR * 2.30));
+
+        AffineTransform prevTx = g.getTransform();
+        g.translate(orbX, orbY);
+        g.rotate(0.32 + Math.sin(tSec * 2.2) * 0.12);
+        int ringW = (int) Math.round(outerR * 3.15);
+        int ringH = Math.max(8, (int) Math.round(outerR * 0.88));
+        g.setComposite(alphaComp(fade * 0.90));
+        g.setColor(new Color(0xFACC15));
+        g.setStroke(roundStroke(2.8f));
+        g.drawOval(-ringW / 2, -ringH / 2, ringW, ringH);
+        g.setColor(new Color(0xFEF08A));
+        g.setStroke(roundStroke(1.3f));
+        g.drawOval(-ringW / 2 + 5, -ringH / 2 + 2, Math.max(6, ringW - 10), Math.max(4, ringH - 4));
+
+        g.rotate(-0.68 - tSec * 0.75);
+        g.setComposite(alphaComp(fade * 0.62));
+        g.setColor(new Color(0xC084FC));
+        g.setStroke(roundStroke(1.5f));
+        g.drawOval(-(int) (outerR * 1.32), -(int) (outerR * 0.42), (int) (outerR * 2.64), Math.max(6, (int) (outerR * 0.84)));
+        g.setTransform(prevTx);
+
+        // 3. Blazing golden photon sphere & stark dark gravitational black hole core
+        g.setComposite(alphaComp(fade * 0.76));
+        g.setColor(new Color(0xFDE047));
+        int midR = Math.max(8, (int) Math.round(outerR * 0.82));
+        g.fillOval((int) Math.round(orbX - midR), (int) Math.round(orbY - midR), midR * 2, midR * 2);
+
+        g.setComposite(alphaComp(fade * 0.98));
+        g.setColor(new Color(6, 4, 14));
+        g.fillOval((int) Math.round(orbX - voidR), (int) Math.round(orbY - voidR), voidR * 2, voidR * 2);
+        g.setColor(new Color(0xFEF08A));
+        g.setStroke(roundStroke(2.2f));
+        g.drawOval((int) Math.round(orbX - voidR), (int) Math.round(orbY - voidR), voidR * 2, voidR * 2);
+        g.setColor(Color.WHITE);
+        g.setStroke(roundStroke(1.1f));
+        g.drawOval((int) Math.round(orbX - voidR + 1), (int) Math.round(orbY - voidR + 1), Math.max(4, voidR * 2 - 2), Math.max(4, voidR * 2 - 2));
+    }
+
+    private void drawMothraCelestialDome(
+            Graphics2D g, SeaAnomaly a, double cx, double cy, int s,
+            double radius, double pop, double fade, double tSec
+    ) {
+        double orbY = cy - s * 0.48 * pop + Math.sin(tSec * 2.8) * 3.0;
+        int orbR = Math.max(11, (int) Math.round(radius * 0.76));
+
+        // 1. Spiraling sea mist & luminous divine moth scales rising softly off the sea
+        for (int i = 0; i < 14; i++) {
+            double lift = (tSec * 0.85 + i * 0.071) % 1.0;
+            double ang = i * (Math.PI / 7.0) + tSec * 2.4 + lift * 2.6;
+            double rOrbit = radius * (1.35 - lift * 0.48);
+            double px = cx + Math.cos(ang) * rOrbit;
+            double py = cy + s * 0.08 - lift * (s * 0.96 * pop);
+            float pa = (float) (fade * Math.sin(lift * Math.PI) * 0.90);
+            if (pa <= 0.03f) continue;
+            g.setComposite(alphaComp(pa));
+            Color dust = (i % 3 == 0) ? new Color(0xFEF08A) : (i % 3 == 1 ? new Color(0x34D399) : new Color(0xBAE6FD));
+            SpriteAssets.drawVoxelCube(g, (int) Math.round(px), (int) Math.round(py), i % 2 == 0 ? 4 : 3, Color.WHITE, dust);
+        }
+
+        // 2. Radiant soft celestial aura + rotating sea-lotus prism petals (translucent glass layers!)
+        drawGlow(g, new Color(0x34D399), cx, orbY, orbR * 2.45, (float) (fade * 0.62), false);
+        drawGlow(g, new Color(0xFDE047), cx, orbY, orbR * 1.75, (float) (fade * 0.68), false);
+
+        AffineTransform prevTx = g.getTransform();
+        g.translate(cx, orbY);
+        for (int p = 0; p < 6; p++) {
+            g.rotate(Math.PI / 3.0);
+            AffineTransform petalTx = g.getTransform();
+            g.rotate(tSec * 0.42);
+            g.setComposite(alphaComp(fade * 0.34));
+            g.setColor(p % 2 == 0 ? new Color(0x34D399) : new Color(0xFDE047));
+            int pw = Math.max(8, (int) (orbR * 0.72));
+            int ph = Math.max(14, (int) (orbR * 1.65));
+            g.fillOval(-pw / 2, -ph, pw, ph);
+            g.setComposite(alphaComp(fade * 0.62));
+            g.setColor(new Color(0xFEF08A));
+            g.setStroke(roundStroke(1.2f));
+            g.drawOval(-pw / 2, -ph, pw, ph);
+            g.setTransform(petalTx);
+        }
+        g.rotate(tSec * 0.75);
+        g.setComposite(alphaComp(fade * 0.84));
+        g.setColor(new Color(0xFEF08A));
+        g.setStroke(roundStroke(2.0f));
+        g.drawOval(-(int) (orbR * 1.48), -(int) (orbR * 0.50), (int) (orbR * 2.96), Math.max(6, (int) (orbR * 1.00)));
+        g.rotate(-tSec * 1.35 + 1.04);
+        g.setColor(new Color(0x34D399));
+        g.setStroke(roundStroke(1.8f));
+        g.drawOval(-(int) (orbR * 1.36), -(int) (orbR * 0.46), (int) (orbR * 2.72), Math.max(6, (int) (orbR * 0.92)));
+        g.setTransform(prevTx);
+
+        // 3. Translucent iridescent pearl-sphere + glowing 4-point celestial star flare
+        g.setComposite(alphaComp(fade * 0.38));
+        g.setColor(new Color(0x10B981));
+        g.fillOval((int) Math.round(cx - orbR), (int) Math.round(orbY - orbR), orbR * 2, orbR * 2);
+        int innerR = Math.max(7, (int) Math.round(orbR * 0.62));
+        g.setComposite(alphaComp(fade * 0.52));
+        g.setColor(new Color(0xFEF08A));
+        g.fillOval((int) Math.round(cx - innerR), (int) Math.round(orbY - innerR), innerR * 2, innerR * 2);
+
+        g.setComposite(alphaComp(fade * 0.88));
+        g.setColor(new Color(0xFEF08A));
+        g.setStroke(roundStroke(2.2f));
+        g.drawOval((int) Math.round(cx - orbR), (int) Math.round(orbY - orbR), orbR * 2, orbR * 2);
+
+        // 4-point starflare at orb center instead of flat white circle
+        double flareLen = orbR * (0.95 + 0.15 * Math.sin(tSec * 5.2));
+        g.setComposite(alphaComp(fade * 0.95));
+        g.setColor(Color.WHITE);
+        g.setStroke(roundStroke(2.4f));
+        g.drawLine((int) Math.round(cx - flareLen), (int) Math.round(orbY), (int) Math.round(cx + flareLen), (int) Math.round(orbY));
+        g.drawLine((int) Math.round(cx), (int) Math.round(orbY - flareLen), (int) Math.round(cx), (int) Math.round(orbY + flareLen));
+        drawGlow(g, Color.WHITE, cx, orbY, orbR * 0.85, (float) (fade * 0.85), false);
     }
 
     private void drawImpactZonePerimeters(Graphics2D g, Layout layout, long now) {
@@ -1947,7 +2666,22 @@ public class BoardPanel extends JPanel {
 
     static void drawCell(Graphics2D g, int x, int y, int size, CellState state, boolean hover) {
         Color fill = switch (state) {
-            case EMPTY -> OceanMapBackdrop.gridCellFill(hover);
+            case EMPTY -> {
+                Color base = OceanMapBackdrop.gridCellFill(hover);
+                if (!OceanMapBackdrop.isTitanPhase2()) yield base;
+                Color tint = switch (OceanMapBackdrop.getMapTheme()) {
+                    case APOCALYPSE -> new Color(180, 38, 22, hover ? 84 : 52);
+                    case GALAXY_COSMOS -> new Color(139, 92, 246, hover ? 84 : 50);
+                    case FANTASY_REALM -> new Color(219, 39, 119, hover ? 82 : 48);
+                    case ABYSSAL_ATLANTIS -> new Color(20, 184, 166, hover ? 82 : 46);
+                    case NAVAL_CITADEL -> new Color(245, 158, 11, hover ? 76 : 42);
+                };
+                yield new Color(
+                        Math.min(255, (base.getRed() * 3 + tint.getRed()) / 4),
+                        Math.min(255, (base.getGreen() * 3 + tint.getGreen()) / 4),
+                        Math.min(255, (base.getBlue() * 3 + tint.getBlue()) / 4),
+                        Math.min(245, Math.max(base.getAlpha(), tint.getAlpha() + 36)));
+            }
             case SHIP -> UiTokens.STATE_SHIP;
             case HIT -> UiTokens.STATE_HIT;
             case MISS -> UiTokens.STATE_MISS;
@@ -2261,6 +2995,33 @@ public class BoardPanel extends JPanel {
         }
     }
 
+    private static final class SeaAnomaly {
+        final TitanMode.TitanBoss boss;
+        final TitanMode.TitanSkill skill;
+        final int anchorRow;
+        final int anchorCol;
+        final List<int[]> waterCells;
+        final Color accent;
+        final boolean enraged;
+        final long startMs;
+        final long burstUntilMs;
+        final long endMs;
+
+        SeaAnomaly(TitanMode.TitanBoss boss, TitanMode.TitanSkill skill, int anchorRow, int anchorCol,
+                   List<int[]> waterCells, Color accent, boolean enraged, long startMs, long durationMs) {
+            this.boss = boss != null ? boss : TitanMode.TitanBoss.GODZILLA;
+            this.skill = skill;
+            this.anchorRow = anchorRow;
+            this.anchorCol = anchorCol;
+            this.waterCells = waterCells;
+            this.accent = accent != null ? accent : new Color(0x38BDF8);
+            this.enraged = enraged;
+            this.startMs = startMs;
+            this.burstUntilMs = startMs + 2800L;
+            this.endMs = startMs + Math.max(4500L, durationMs);
+        }
+    }
+
     private static final class ActiveEffect {
         final SpriteAssets.FxType type;
         final int row;
@@ -2321,6 +3082,11 @@ public class BoardPanel extends JPanel {
         return cellStateOverride;
     }
 
+    public CellState getCellState(int row, int col) {
+        if (row < 0 || row >= Board.SIZE || col < 0 || col >= Board.SIZE) return CellState.EMPTY;
+        return cellStateAt(row, col);
+    }
+
     private CellState cellStateAt(int row, int col) {
         if (cellStateOverride != null && row >= 0 && row < Board.SIZE && col >= 0 && col < Board.SIZE) {
             CellState st = cellStateOverride[row][col];
@@ -2336,6 +3102,42 @@ public class BoardPanel extends JPanel {
         shieldBlocks.clear();
         shieldCracks.clear();
         impactZones.clear();
+        seaAnomalies.clear();
+        bossCellScars.clear();
+        telegraphCells = List.of();
+        telegraphProgress = 0.0;
+        hazardTiles = List.of();
+        arenaProps = List.of();
+        floatingPopups.clear();
+        severedLimbs.clear();
+        lastDetachedMs.clear();
+        selectedDodgeShip = null;
+        titanOffR = 0;
+        titanOffC = 0;
+        titanVisOffR = 0.0;
+        titanVisOffC = 0.0;
+        titanCastProgress = 0.0;
+        titanCastLabel = "";
+        titanChargingPart = null;
+        titanStaggerGauge = 0;
+        titanStaggered = false;
+        titanSubmerged = false;
+        titanChilled = false;
+        titanExposed = false;
+        titanBurnStacks = 0;
+        titanHeadBroken = false;
+        titanCoreBroken = false;
+        titanBodyBroken = false;
+        titanHeadHp = 1;
+        titanHeadMax = 1;
+        titanCoreHp = 1;
+        titanCoreMax = 1;
+        titanBodyHp = 1;
+        titanBodyMax = 1;
+        titanDpsCheckActive = false;
+        titanAntiMissileReady = false;
+        titanAntiMissileCdMs = 0L;
+        titanAntiMissileTag = "";
         revealedCells = List.of();
         shieldedCells = List.of();
         fullMapShield = false;
@@ -2379,13 +3181,527 @@ public class BoardPanel extends JPanel {
 
     public void clearImpactZones() {
         impactZones.clear();
+        seaAnomalies.clear();
         ensureFxTimerState();
         repaint();
     }
 
+    public void triggerBossTerrainAftermath(
+            TitanMode.TitanSkill skill,
+            int targetRow,
+            int targetCol,
+            Collection<int[]> waterCells,
+            boolean enraged
+    ) {
+        if (skill == null || waterCells == null || waterCells.isEmpty()) return;
+        List<int[]> validWater = copyValidCells(waterCells);
+        if (validWater.isEmpty()) return;
+
+        int anchorR = validWater.get(0)[0];
+        int anchorC = validWater.get(0)[1];
+        int bestDistSq = Integer.MAX_VALUE;
+        for (int[] wc : validWater) {
+            int dr = wc[0] - targetRow;
+            int dc = wc[1] - targetCol;
+            int dSq = dr * dr + dc * dc;
+            if (dSq < bestDistSq) {
+                bestDistSq = dSq;
+                anchorR = wc[0];
+                anchorC = wc[1];
+            }
+        }
+
+        final int ar = anchorR;
+        final int ac = anchorC;
+        seaAnomalies.removeIf(a -> a.boss == skill.boss
+                && Math.abs(a.anchorRow - ar) <= 1 && Math.abs(a.anchorCol - ac) <= 1);
+        while (seaAnomalies.size() >= 4) {
+            seaAnomalies.remove(0);
+        }
+
+        long now = System.currentTimeMillis();
+        long durationMs = CombatFxOverlay.isSignatureTitanPovSkill(skill) ? 16000L : 11000L;
+        seaAnomalies.add(new SeaAnomaly(skill.boss, skill, anchorR, anchorC, validWater,
+                skill.accentColor, enraged, now, durationMs));
+        triggerShake(CombatFxOverlay.isSignatureTitanPovSkill(skill) ? 8 : 5);
+        ensureFxTimerState();
+        repaint();
+    }
+
+    public void recordBossCellScars(TitanMode.TitanBoss boss, Collection<int[]> hitCells) {
+        if (boss == null || hitCells == null || hitCells.isEmpty()) return;
+        for (int[] cell : hitCells) {
+            if (cell != null && cell.length >= 2 && cell[0] >= 0 && cell[0] < Board.SIZE
+                    && cell[1] >= 0 && cell[1] < Board.SIZE) {
+                bossCellScars.put(cell[0] * Board.SIZE + cell[1], boss);
+            }
+        }
+        repaint();
+    }
+
     public int getImpactZoneCount() { return impactZones.size(); }
+    public int getSeaAnomalyCount() { return seaAnomalies.size(); }
     public void setOnCellClick(BiConsumer<Integer, Integer> listener) { this.onCellClick = listener; }
     public void setOnCellHover(BiConsumer<Integer, Integer> listener) { this.onCellHover = listener; }
+    public void setOnRightCellClick(BiConsumer<Integer, Integer> listener) { this.onRightCellClick = listener; }
+    public void setOnRightClick(Runnable listener) { this.onRightClick = listener; }
+    public void setSelectedDodgeShip(ShipType type) {
+        if (this.selectedDodgeShip != type) {
+            this.selectedDodgeShip = type;
+            repaint();
+        }
+    }
+
+    public void setTelegraphCells(Collection<int[]> cells, double progress, Color accent) {
+        this.telegraphCells = copyValidCells(cells);
+        this.telegraphProgress = Math.max(0.0, Math.min(1.0, progress));
+        this.telegraphAccent = accent != null ? accent : UiTokens.STATUS_DANGER;
+        repaint();
+    }
+
+    public void setHazardTiles(Collection<TitanBattleController.HazardTile> hazards) {
+        this.hazardTiles = hazards == null ? List.of() : List.copyOf(hazards);
+        repaint();
+    }
+
+    public void addFloatingPopup(int row, int col, String text, Color color, boolean big) {
+        if (text == null || text.isBlank()) return;
+        int r = clamp(row, 0, Board.SIZE - 1);
+        int c = clamp(col, 0, Board.SIZE - 1);
+        long now = System.currentTimeMillis();
+        if (floatingPopups.size() >= 14) floatingPopups.remove(0);
+        floatingPopups.add(new FloatingPopup(r, c, text, color != null ? color : Color.WHITE, big, now, now + (big ? 1050L : 820L)));
+        if (isShowing() && !fxTimer.isRunning()) fxTimer.start();
+        repaint();
+    }
+
+    public void setTitanBossOffset(int offR, int offC) {
+        if (this.titanOffR != offR || this.titanOffC != offC) {
+            this.titanOffR = offR;
+            this.titanOffC = offC;
+            if (isShowing() && !fxTimer.isRunning()) fxTimer.start();
+            repaint();
+        }
+    }
+
+    public void setTitanRaidState(
+            double castProgress,
+            String castLabel,
+            TitanMode.TitanPart chargingPart,
+            int staggerGauge,
+            int staggerThreshold,
+            boolean staggered,
+            boolean submerged,
+            boolean chilled,
+            boolean exposed,
+            int burnStacks,
+            boolean headBroken,
+            boolean coreBroken,
+            boolean bodyBroken
+    ) {
+        this.titanCastProgress = Math.max(0.0, Math.min(1.0, castProgress));
+        this.titanCastLabel = castLabel == null ? "" : castLabel;
+        this.titanChargingPart = chargingPart;
+        this.titanStaggerGauge = Math.max(0, staggerGauge);
+        this.titanStaggerThreshold = Math.max(1, staggerThreshold);
+        this.titanStaggered = staggered;
+        this.titanSubmerged = submerged;
+        this.titanChilled = chilled;
+        this.titanExposed = exposed;
+        this.titanBurnStacks = Math.max(0, burnStacks);
+        boolean headJustBroken = !this.titanHeadBroken && headBroken && titanBoss != null;
+        boolean coreJustBroken = !this.titanCoreBroken && coreBroken && titanBoss != null;
+        boolean bodyJustBroken = !this.titanBodyBroken && bodyBroken && titanBoss != null;
+        this.titanHeadBroken = headBroken;
+        this.titanCoreBroken = coreBroken;
+        this.titanBodyBroken = bodyBroken;
+        if (headJustBroken) triggerPartBreakDetachment(TitanMode.TitanPart.HEAD);
+        if (coreJustBroken) triggerPartBreakDetachment(TitanMode.TitanPart.CORE_FIN);
+        if (bodyJustBroken) triggerPartBreakDetachment(TitanMode.TitanPart.BODY_TAIL);
+        repaint();
+    }
+
+    public void setTitanBarrierState(int barrierHp, int barrierMaxHp) {
+        this.titanEnrageBarrierHp = Math.max(0, barrierHp);
+        this.titanEnrageBarrierMaxHp = Math.max(0, barrierMaxHp);
+        repaint();
+    }
+
+    /** Spawns a tumbling severed voxel limb/fin/head chunk + shockwave & splash when a boss part breaks. */
+    public void triggerPartBreakDetachment(TitanMode.TitanPart part) {
+        if (titanBoss == null || part == null) return;
+        long now = System.currentTimeMillis();
+        Long prevMs = lastDetachedMs.get(part);
+        if (prevMs != null && (now - prevMs) < 350L) return;
+        lastDetachedMs.put(part, now);
+
+        Layout layout = computeLayout();
+        int cell = Math.max(24, layout.cellSize);
+        Layout effLayout = layout.cellSize > 4 ? layout : new Layout(24, 24, cell);
+        int[] bounds = computeTitanBounds(effLayout, now);
+        boolean charging = now < titanChargeUntilMs;
+        BufferedImage chunk = SpriteAssets.getSeveredPartChunk(titanBoss, titanEnraged, charging, part);
+        double[] uv = SpriteAssets.getSeveredPartAnchorUv(titanBoss, part);
+        double sx = bounds[0] + uv[0] * bounds[2];
+        double sy = bounds[1] + uv[1] * bounds[3];
+        double waterY = Math.min(effLayout.gridY + effLayout.cellSize * 9.35,
+                bounds[1] + bounds[3] * titanWaterRatio(titanBoss));
+        if (chunk != null) {
+            double dir = uv[0] < 0.48 ? -1.0 : 1.0;
+            double vx = dir * (58.0 + titanWaterRng.nextDouble() * 44.0);
+            double vy = -(115.0 + titanWaterRng.nextDouble() * 45.0);
+            double rotSpeed = dir * (3.1 + titanWaterRng.nextDouble() * 1.6);
+            double scale = bounds[2] / 288.0;
+            Color glow = switch (part) {
+                case HEAD -> new Color(0xFACC15);
+                case CORE_FIN -> titanBoss.accentColor;
+                case BODY_TAIL -> new Color(0xFB923C);
+            };
+            double spawnX = sx + dir * cell * 0.85;
+            double spawnY = sy - cell * 0.30;
+            severedLimbs.add(new SeveredLimbFx(chunk, spawnX, spawnY, vx, vy, dir * 0.34, rotSpeed,
+                    scale, Math.max(sy + cell * 1.2, waterY), glow, now, now + 1550L));
+        }
+        triggerShake(10);
+        burstTitanWater(24, 1.20);
+        ensureFxTimerState();
+        repaint();
+    }
+
+    public int getActiveSeveredLimbsCount() {
+        return severedLimbs.size();
+    }
+
+    public void setTitanPartDetails(
+            int headHp, int headMax,
+            int coreHp, int coreMax,
+            int bodyHp, int bodyMax,
+            boolean dpsCheckActive
+    ) {
+        this.titanHeadHp = Math.max(0, headHp);
+        this.titanHeadMax = Math.max(1, headMax);
+        this.titanCoreHp = Math.max(0, coreHp);
+        this.titanCoreMax = Math.max(1, coreMax);
+        this.titanBodyHp = Math.max(0, bodyHp);
+        this.titanBodyMax = Math.max(1, bodyMax);
+        this.titanDpsCheckActive = dpsCheckActive;
+        repaint();
+    }
+
+    public void setTitanAntiMissileState(boolean ready, long cooldownMs, String label) {
+        this.titanAntiMissileReady = ready;
+        this.titanAntiMissileCdMs = Math.max(0L, cooldownMs);
+        this.titanAntiMissileTag = label != null ? label : "";
+    }
+
+    private static final class SeveredLimbFx {
+        final BufferedImage sprite;
+        double x, y, vx, vy, angle, rotSpeed;
+        final double scale;
+        final double waterY;
+        final Color glow;
+        final long startMs, endMs;
+        boolean splashed;
+
+        SeveredLimbFx(BufferedImage sprite, double x, double y, double vx, double vy, double angle,
+                      double rotSpeed, double scale, double waterY, Color glow, long startMs, long endMs) {
+            this.sprite = sprite;
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.angle = angle;
+            this.rotSpeed = rotSpeed;
+            this.scale = scale;
+            this.waterY = waterY;
+            this.glow = glow;
+            this.startMs = startMs;
+            this.endMs = endMs;
+        }
+    }
+
+    private record FloatingPopup(int row, int col, String text, Color color, boolean big, long startMs, long endMs) { }
+
+    public void setArenaProps(List<TitanBattleController.ArenaProp> props) {
+        List<TitanBattleController.ArenaProp> next = props == null ? List.of() : List.copyOf(props);
+        if (Objects.equals(this.arenaProps, next)) return;
+        this.arenaProps = next;
+        repaint();
+    }
+
+    private void drawUnderShipArenaNodes(Graphics2D g, Layout layout, long now) {
+        int s = layout.cellSize;
+        Composite prevComp = g.getComposite();
+        Stroke prevStroke = g.getStroke();
+        double pulse = 0.5 + 0.5 * Math.sin(now * 0.006);
+        double fastPulse = 0.5 + 0.5 * Math.sin(now * 0.014);
+
+        for (TitanBattleController.ArenaProp p : arenaProps) {
+            int x = layout.gridX + p.col() * s;
+            int y = layout.gridY + p.row() * s;
+            boolean ready = p.cooldownMs() <= 0L;
+            switch (p.kind()) {
+                case CURRENT_LANE -> {
+                    g.setComposite(alphaComp((float) (ready ? (0.24 + 0.14 * pulse) : 0.10)));
+                    g.setColor(new Color(0x38BDF8));
+                    g.fillRect(x + 2, y + 2, s - 4, s - 4);
+                    g.setComposite(alphaComp(ready ? 0.72f : 0.28f));
+                    g.setStroke(roundStroke(1.5f));
+                    int phasePx = (int) ((now / 70L) % Math.max(6, s / 3));
+                    int cy = y + s / 2;
+                    for (int k = -1; k <= 0; k++) {
+                        int cx = x + s / 3 + k * (s / 4) + phasePx / 2;
+                        g.drawLine(cx - 4, cy - 4, cx + 2, cy);
+                        g.drawLine(cx - 4, cy + 4, cx + 2, cy);
+                    }
+                }
+                case LAVA_FISSURE -> {
+                    boolean warning = !p.active() && p.cooldownMs() > 0L;
+                    boolean erupting = p.active();
+                    if (erupting) {
+                        g.setComposite(alphaComp((float) (0.36 + 0.22 * fastPulse)));
+                        g.setColor(new Color(0xEF4444));
+                        g.fillRect(x + 1, y + 1, s - 2, s - 2);
+                    } else if (warning) {
+                        double prog = 1.0 - Math.min(1.0, p.cooldownMs() / 1500.0);
+                        g.setComposite(alphaComp((float) (0.25 + 0.30 * fastPulse)));
+                        g.setColor(new Color(0xF59E0B));
+                        g.fillRect(x + 2, y + 2, s - 4, s - 4);
+                        g.setComposite(alphaComp(0.88f));
+                        g.setStroke(roundStroke(1.8f));
+                        g.setColor(new Color(0xFEF08A));
+                        int inset = Math.max(2, (int) Math.round((1.0 - prog) * (s * 0.32)));
+                        g.drawRect(x + inset, y + inset, s - inset * 2, s - inset * 2);
+                    }
+                    BufferedImage spr = SpriteAssets.getMapProp("lava_fissure");
+                    if (spr != null) {
+                        g.setComposite(alphaComp(erupting ? 0.96f : (warning ? 0.88f : 0.62f)));
+                        int pad = Math.max(2, s / 10);
+                        SpriteAssets.drawSharp(g, spr, x + pad, y + pad, s - pad * 2, s - pad * 2);
+                    }
+                }
+                case MANA_PYLON -> {
+                    g.setComposite(alphaComp((float) (ready ? (0.24 + 0.16 * pulse) : 0.08)));
+                    g.setColor(new Color(0x2DD4BF));
+                    g.fillOval(x + 3, y + 3, s - 6, s - 6);
+                    BufferedImage spr = SpriteAssets.getMapProp("atlantis_pylon");
+                    if (spr != null) {
+                        g.setComposite(alphaComp(ready ? 0.94f : 0.36f));
+                        int pad = Math.max(2, s / 10);
+                        SpriteAssets.drawSharp(g, spr, x + pad, y + pad, s - pad * 2, s - pad * 2);
+                    }
+                }
+                case ARCANE_LEYNODE -> {
+                    g.setComposite(alphaComp((float) (0.22 + 0.18 * pulse)));
+                    g.setColor(new Color(0xE879F9));
+                    g.fillOval(x + 2, y + 2, s - 4, s - 4);
+                    g.setComposite(alphaComp((float) (0.68 + 0.24 * pulse)));
+                    g.setStroke(roundStroke(1.5f));
+                    g.setColor(new Color(0xFACC15));
+                    g.drawOval(x + 4, y + 4, s - 8, s - 8);
+                    BufferedImage spr = SpriteAssets.getMapProp("arcane_leynode");
+                    if (spr != null) {
+                        g.setComposite(alphaComp(0.86f));
+                        int pad = Math.max(3, s / 8);
+                        SpriteAssets.drawSharp(g, spr, x + pad, y + pad, s - pad * 2, s - pad * 2);
+                    }
+                }
+                case GRAVITY_NODE -> {
+                    g.setComposite(alphaComp((float) (ready ? (0.24 + 0.16 * pulse) : 0.09)));
+                    g.setColor(new Color(0xA855F7));
+                    g.fillOval(x + 3, y + 3, s - 6, s - 6);
+                    BufferedImage spr = SpriteAssets.getMapProp("gravity_node");
+                    if (spr != null) {
+                        g.setComposite(alphaComp(ready ? 0.92f : 0.38f));
+                        int pad = Math.max(2, s / 10);
+                        SpriteAssets.drawSharp(g, spr, x + pad, y + pad, s - pad * 2, s - pad * 2);
+                    }
+                }
+                default -> { }
+            }
+        }
+        g.setComposite(prevComp);
+        g.setStroke(prevStroke);
+    }
+
+    private void drawSurfaceArenaProps(Graphics2D g, Layout layout, long now) {
+        int s = layout.cellSize;
+        Composite prevComp = g.getComposite();
+        Stroke prevStroke = g.getStroke();
+        double pulse = 0.5 + 0.5 * Math.sin(now * 0.008);
+
+        for (TitanBattleController.ArenaProp p : arenaProps) {
+            int x = layout.gridX + p.col() * s;
+            int y = layout.gridY + p.row() * s;
+            switch (p.kind()) {
+                case COVER_REEF -> {
+                    boolean damaged = p.hp() < p.maxHp();
+                    // Subtle orthogonal bunker protection indicator (4-neighbor shield cue)
+                    g.setComposite(alphaComp((float) (0.20 + 0.10 * pulse)));
+                    g.setStroke(roundStroke(1.25f));
+                    g.setColor(damaged ? new Color(0xFB923C) : new Color(0x38BDF8));
+                    int[][] dirs = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+                    for (int[] d : dirs) {
+                        int nr = p.row() + d[0], nc = p.col() + d[1];
+                        if (nr < 0 || nr >= Board.SIZE || nc < 0 || nc >= Board.SIZE) continue;
+                        if (cellStateAt(nr, nc) == CellState.SHIP) {
+                            int nx = layout.gridX + nc * s;
+                            int ny = layout.gridY + nr * s;
+                            g.drawRoundRect(nx + 3, ny + 3, s - 6, s - 6, 6, 6);
+                        }
+                    }
+                    g.setComposite(alphaComp(0.32f));
+                    g.setColor(Color.BLACK);
+                    g.fillOval(x + 4, y + s - 10, s - 8, 6);
+                    String key = damaged ? "cover_reef_cracked" : "cover_reef_intact";
+                    BufferedImage spr = SpriteAssets.getMapProp(key);
+                    if (spr != null) {
+                        g.setComposite(alphaComp(0.98f));
+                        int pad = Math.max(1, s / 16);
+                        SpriteAssets.drawSharp(g, spr, x + pad, y + pad - 1, s - pad * 2, s - pad * 2);
+                    }
+                    // Armor durability pips centered along bottom bezel
+                    int pipW = Math.max(4, s / 6);
+                    int gap = 2;
+                    int totalW = p.maxHp() * pipW + (p.maxHp() - 1) * gap;
+                    int px0 = x + (s - totalW) / 2;
+                    int py0 = y + s - 6;
+                    for (int k = 0; k < p.maxHp(); k++) {
+                        g.setComposite(alphaComp(0.92f));
+                        g.setColor(k < p.hp() ? (damaged ? new Color(0xF59E0B) : new Color(0x38BDF8)) : new Color(15, 23, 42, 180));
+                        g.fillRect(px0 + k * (pipW + gap), py0, pipW, 4);
+                        g.setColor(Color.WHITE);
+                        g.drawRect(px0 + k * (pipW + gap), py0, pipW, 4);
+                    }
+                }
+                case SONAR_BUOY -> {
+                    boolean ready = p.cooldownMs() <= 0L;
+                    int bob = (int) Math.round(Math.sin(now * 0.005 + p.id()) * 2.0);
+                    g.setComposite(alphaComp((float) (ready ? (0.30 + 0.22 * pulse) : 0.10)));
+                    g.setColor(new Color(0x22D3EE));
+                    g.drawOval(x + 2, y + 2, s - 4, s - 4);
+                    BufferedImage spr = SpriteAssets.getMapProp("sonar_buoy");
+                    if (spr != null) {
+                        g.setComposite(alphaComp(ready ? 0.96f : 0.40f));
+                        int pad = Math.max(2, s / 10);
+                        SpriteAssets.drawSharp(g, spr, x + pad, y + pad + bob, s - pad * 2, s - pad * 2);
+                    }
+                }
+                case BEACON_SUPPLY, BEACON_MANA, BEACON_SHIELD -> {
+                    int bob = (int) Math.round(Math.sin(now * 0.006 + p.id() * 1.3) * 2.5);
+                    Color aura = switch (p.kind()) {
+                        case BEACON_SUPPLY -> new Color(0x34D399);
+                        case BEACON_MANA -> new Color(0x38BDF8);
+                        default -> new Color(0xFACC15);
+                    };
+                    String key = switch (p.kind()) {
+                        case BEACON_SUPPLY -> "beacon_supply";
+                        case BEACON_MANA -> "beacon_mana";
+                        default -> "beacon_shield";
+                    };
+                    g.setComposite(alphaComp((float) (0.24 + 0.18 * pulse)));
+                    g.setColor(aura);
+                    g.fillOval(x + 4, y + 4, s - 8, s - 8);
+                    BufferedImage spr = SpriteAssets.getMapProp(key);
+                    if (spr != null) {
+                        g.setComposite(alphaComp(0.98f));
+                        int pad = Math.max(2, s / 11);
+                        SpriteAssets.drawSharp(g, spr, x + pad, y + pad + bob, s - pad * 2, s - pad * 2);
+                    }
+                }
+                default -> { }
+            }
+        }
+        g.setComposite(prevComp);
+        g.setStroke(prevStroke);
+    }
+
+    private void drawRaidBoardOverlays(Graphics2D g, Layout layout, List<ShipSpan> shipSpans, long now) {
+        int s = layout.cellSize;
+        Composite prevComp = g.getComposite();
+        Stroke prevStroke = g.getStroke();
+        double pulse = 0.5 + 0.5 * Math.sin(now * 0.011);
+
+        for (TitanBattleController.HazardTile hz : hazardTiles) {
+            int x = layout.gridX + hz.col() * s;
+            int y = layout.gridY + hz.row() * s;
+            g.setComposite(alphaComp((float) (0.20 + 0.14 * pulse)));
+            g.setColor(hz.type().accent);
+            g.fillRect(x + 2, y + 2, s - 4, s - 4);
+            g.setComposite(alphaComp(0.68));
+            g.setStroke(roundStroke(1.3f));
+            g.drawRect(x + 3, y + 3, s - 6, s - 6);
+            if (hz.type() == TitanMode.HazardType.SILK_SLOW) {
+                g.drawLine(x + 4, y + 4, x + s - 4, y + s - 4);
+                g.drawLine(x + s - 4, y + 4, x + 4, y + s - 4);
+            } else {
+                SpriteAssets.drawVoxelCube(g, x + s / 2, y + s / 2, Math.max(3, s / 7), Color.WHITE, hz.type().accent);
+            }
+        }
+
+        if (!telegraphCells.isEmpty()) {
+            double urg = 0.45 + 0.55 * telegraphProgress;
+            Color warnRed = UiTokens.STATUS_DANGER;
+            for (int[] c : telegraphCells) {
+                int x = layout.gridX + c[1] * s;
+                int y = layout.gridY + c[0] * s;
+                g.setComposite(alphaComp((float) (0.26 + 0.24 * urg * pulse)));
+                g.setColor(warnRed);
+                g.fillRect(x + 1, y + 1, s - 2, s - 2);
+                g.setComposite(alphaComp((float) (0.85 + 0.14 * pulse)));
+                g.setColor(telegraphProgress > 0.72 ? new Color(0xFEF08A) : new Color(0xFB7185));
+                g.setStroke(roundStroke(2.2f));
+                g.drawRect(x + 2, y + 2, s - 5, s - 5);
+                // Inner shrinking countdown rectangle indicating impact timing
+                int inset = (int) Math.round((1.0 - telegraphProgress) * (s * 0.34));
+                if (inset >= 1 && s - inset * 2 > 4) {
+                    g.setComposite(alphaComp(0.58));
+                    g.setStroke(roundStroke(1.3f));
+                    g.drawRect(x + inset + 2, y + inset + 2, s - inset * 2 - 4, s - inset * 2 - 4);
+                }
+            }
+        }
+
+        if (selectedDodgeShip != null) {
+            for (ShipSpan span : shipSpans) {
+                if (span.type != selectedDodgeShip) continue;
+                int sx = layout.gridX + span.col * s;
+                int sy = layout.gridY + span.row * s;
+                int sw = span.horizontal ? span.length * s : s;
+                int sh = span.horizontal ? s : span.length * s;
+                g.setComposite(alphaComp((float) (0.72 + 0.26 * pulse)));
+                g.setColor(new Color(0x38BDF8));
+                g.setStroke(roundStroke(2.2f));
+                g.drawRoundRect(sx - 2, sy - 2, sw + 4, sh + 4, 8, 8);
+                g.setColor(Color.WHITE);
+                SpriteAssets.drawVoxelCube(g, sx + sw - 4, sy + 4, 4, Color.WHITE, new Color(0x38BDF8));
+            }
+        }
+
+        g.setComposite(prevComp);
+        g.setStroke(prevStroke);
+    }
+
+    private void drawFloatingPopups(Graphics2D g, Layout layout, long now) {
+        int s = layout.cellSize;
+        Composite prevComp = g.getComposite();
+        g.setFont(UiTokens.FONT_COORD.deriveFont(java.awt.Font.BOLD));
+        FontMetrics fm = g.getFontMetrics();
+        for (FloatingPopup fp : floatingPopups) {
+            double p = Math.max(0.0, Math.min(1.0, (now - fp.startMs) / (double) Math.max(1L, fp.endMs - fp.startMs)));
+            float alpha = (float) (p < 0.72 ? 1.0 : Math.max(0.0, (1.0 - p) / 0.28));
+            int cx = layout.gridX + fp.col * s + s / 2;
+            int cy = layout.gridY + fp.row * s + (int) Math.round(s * 0.28 - p * s * 1.15);
+            int tw = fm.stringWidth(fp.text);
+            int tx = Math.max(layout.gridX + 2, Math.min(layout.gridX + s * Board.SIZE - tw - 2, cx - tw / 2));
+            g.setComposite(alphaComp(alpha));
+            g.setColor(new Color(4, 10, 20, 220));
+            g.drawString(fp.text, tx + 1, cy + 1);
+            g.setColor(fp.color);
+            g.drawString(fp.text, tx, cy);
+        }
+        g.setComposite(prevComp);
+    }
 
     public void setShipPreview(int row, int col, int length, boolean horizontal, boolean valid) {
         setShipPreview(row, col, null, length, horizontal, valid);
@@ -2610,6 +3926,18 @@ public class BoardPanel extends JPanel {
         return superShipRow >= 0;
     }
 
+    public boolean isShowShips() {
+        return showShips;
+    }
+
+    public TitanMode.TitanBoss getTitanBoss() {
+        return titanBoss;
+    }
+
+    public boolean isTitanEnraged() {
+        return titanEnraged;
+    }
+
     public void setSuperArmorGrid(int[][] armor) {
         for (int r = 0; r < Board.SIZE; r++) {
             for (int c = 0; c < Board.SIZE; c++) {
@@ -2708,7 +4036,7 @@ public class BoardPanel extends JPanel {
             if (cell != null && cell.length >= 2 && cell[0] >= 0 && cell[0] < Board.SIZE
                     && cell[1] >= 0 && cell[1] < Board.SIZE) {
                 activeEffects.add(new ActiveEffect(type, cell[0], cell[1], accent, delay));
-                if (type != SpriteAssets.FxType.MISS && delay == 0L) {
+                if (type != SpriteAssets.FxType.MISS) {
                     triggerShipHitAt(cell[0], cell[1], accent != null ? accent : ActiveEffect.defaultAccent(type));
                 }
                 delay += Math.max(0L, staggerMs);
@@ -2807,7 +4135,14 @@ public class BoardPanel extends JPanel {
     }
 
     public ShipLaunchInfo getLauncherForSkill(CombatLoadout.WeaponOption weapon, CombatLoadout.MagicOption magic, Component targetSpace) {
-        ShipType preferred = preferredShipForSkill(weapon, magic);
+        return findLauncherByPreferred(preferredShipForSkill(weapon, magic), weapon == CombatLoadout.WeaponOption.AIRSTRIKE, targetSpace);
+    }
+
+    public ShipLaunchInfo getLauncherForShipType(ShipType preferred, Component targetSpace) {
+        return findLauncherByPreferred(preferred != null ? preferred : ShipType.CRUISER, false, targetSpace);
+    }
+
+    private ShipLaunchInfo findLauncherByPreferred(ShipType preferred, boolean midOffset, Component targetSpace) {
         if (showShips) {
             List<ShipSpan> all = resolveShipSpans(new boolean[Board.SIZE][Board.SIZE]);
             List<ShipSpan> alive = new ArrayList<>();
@@ -2833,7 +4168,7 @@ public class BoardPanel extends JPanel {
                 }
             }
             if (chosen != null) {
-                int offset = weapon == CombatLoadout.WeaponOption.AIRSTRIKE
+                int offset = midOffset
                         ? chosen.length / 2
                         : (chosen.horizontal ? Math.max(0, chosen.length - 1) : 0);
                 int mr = clamp(chosen.row + (chosen.horizontal ? 0 : offset), 0, Board.SIZE - 1);
@@ -2975,8 +4310,8 @@ public class BoardPanel extends JPanel {
                 : (titanBoss == TitanMode.TitanBoss.MOTHRA ? -0.22 : 0.08);
         int bw = (int) Math.round(s * 10.6);
         int bh = (int) Math.round(s * 10.6);
-        int bx = (int) Math.round(layout.gridX - s * 0.35 + lungeX + shakeX);
-        int by = (int) Math.round(layout.gridY + s * yShift + bobY + surgeY);
+        int bx = (int) Math.round(layout.gridX - s * 0.35 + s * titanVisOffC + lungeX + shakeX);
+        int by = (int) Math.round(layout.gridY + s * yShift + s * titanVisOffR + bobY + surgeY);
         return new int[]{bx, by, bw, bh};
     }
 
@@ -3052,25 +4387,42 @@ public class BoardPanel extends JPanel {
         Stroke prevStroke = g.getStroke();
         Shape prevClip = g.getClip();
 
-        // 1. Anatomical hitbox tactical outlines & weakpoint diamonds on sea grid
-        List<int[]> hitboxes = TitanMode.generateHitboxCells(boss);
-        List<int[]> weakpoints = TitanMode.generateWeakpointCells(boss);
+        // 1. Shifted anatomical hitbox outlines, part colors, Broken marks & Charging Part telegraph
+        List<int[]> hitboxes = TitanMode.generateHitboxCells(boss, titanOffR, titanOffC);
+        List<int[]> weakpoints = TitanMode.generateWeakpointCells(boss, titanOffR, titanOffC);
+        TitanMode.TitanPart hoveredPart = (hoveredRow >= 0 && hoveredCol >= 0)
+                ? TitanMode.partAtCell(boss, hoveredRow, hoveredCol, titanOffR, titanOffC)
+                : null;
+        double chargePulse = 0.5 + 0.5 * Math.sin(now * 0.015);
         for (int[] hc : hitboxes) {
             int cx = layout.gridX + hc[1] * s;
             int cy = layout.gridY + hc[0] * s;
-            CellState st = cellStateAt(hc[0], hc[1]);
+            TitanMode.TitanPart part = TitanMode.partAtCell(boss, hc[0], hc[1], titanOffR, titanOffC);
+            boolean broken = (part == TitanMode.TitanPart.HEAD && titanHeadBroken)
+                    || (part == TitanMode.TitanPart.CORE_FIN && titanCoreBroken)
+                    || (part == TitanMode.TitanPart.BODY_TAIL && titanBodyBroken);
             boolean isWeak = containsCell(weakpoints, hc[0], hc[1]);
-            if (st != CellState.HIT) {
-                g.setComposite(alphaComp(isWeak ? 0.24 : 0.14));
-                g.setColor(isWeak ? auraCol : new Color(0x94A3B8));
-                g.fillRect(cx + 2, cy + 2, s - 4, s - 4);
-                g.setComposite(alphaComp(isWeak ? 0.62 : 0.34));
-                g.setStroke(roundStroke(isWeak ? 1.4f : 1.0f));
-                g.drawRect(cx + 2, cy + 2, s - 5, s - 5);
-                if (isWeak) {
-                    int m = Math.max(3, s / 6);
-                    SpriteAssets.drawVoxelCube(g, cx + s / 2, cy + s / 2, m, Color.WHITE, auraCol);
-                }
+            boolean isChargingPart = (titanCastProgress > 0.0 && !titanStaggered && part != null && part == titanChargingPart);
+            boolean isHoveredPart = (part != null && part == hoveredPart);
+            Color cellCol = isChargingPart ? new Color(0xEF4444)
+                    : (broken ? new Color(0x64748B) : (isWeak ? auraCol : new Color(0x94A3B8)));
+            double fillAlpha = isChargingPart ? (0.20 + 0.24 * chargePulse)
+                    : (isHoveredPart ? 0.28 : (broken ? 0.08 : (isWeak ? 0.20 : 0.12)));
+            g.setComposite(alphaComp((float) fillAlpha));
+            g.setColor(cellCol);
+            g.fillRect(cx + 2, cy + 2, s - 4, s - 4);
+            g.setComposite(alphaComp((float) (isChargingPart ? (0.72 + 0.25 * chargePulse)
+                    : (isHoveredPart ? 0.85 : (broken ? 0.28 : (isWeak ? 0.60 : 0.32))))));
+            g.setStroke(roundStroke(isChargingPart ? 2.1f : (isWeak ? 1.4f : 1.0f)));
+            g.drawRect(cx + 2, cy + 2, s - 5, s - 5);
+            if (isChargingPart) {
+                SpriteAssets.drawVoxelCube(g, cx + s / 2, cy + s / 2, Math.max(4, s / 5), Color.WHITE, new Color(0xFACC15));
+            } else if (isWeak && !broken) {
+                SpriteAssets.drawVoxelCube(g, cx + s / 2, cy + s / 2, Math.max(3, s / 6), Color.WHITE,
+                        titanExposed ? new Color(0xFDE047) : auraCol);
+            } else if (broken) {
+                g.setColor(new Color(0x94A3B8));
+                g.drawLine(cx + 5, cy + 5, cx + s - 5, cy + s - 5);
             }
         }
 
@@ -3102,21 +4454,28 @@ public class BoardPanel extends JPanel {
                 s * (Board.SIZE + 2), Math.max(s * 2, seaCutY - (layout.gridY - s)));
         g.clip(boardClip);
 
-        BufferedImage shadow = SpriteAssets.getTitanShadow(boss, enraged);
+        int brokenMask = (titanHeadBroken ? 1 : 0) | (titanCoreBroken ? 2 : 0) | (titanBodyBroken ? 4 : 0);
+        BufferedImage shadow = SpriteAssets.getDamagedTitanShadow(boss, enraged, charging, brokenMask);
         if (shadow != null) {
             g.setComposite(alphaComp(0.58));
             g.drawImage(shadow, bx + Math.max(4, s / 6), by + Math.max(6, s / 5), bw, bh, null);
         }
 
-        BufferedImage sprite = SpriteAssets.getTitanSprite(boss, enraged, charging);
+        BufferedImage sprite = SpriteAssets.getDamagedTitanSprite(boss, enraged, charging, brokenMask);
         if (sprite != null) {
-            g.setComposite(alphaComp(titanHp <= 0 ? 0.36f : 1.0f));
+            float alpha = titanHp <= 0 ? 0.36f : (titanSubmerged ? 0.32f : 1.0f);
+            g.setComposite(alphaComp(alpha));
             SpriteAssets.drawSharp(g, sprite, bx, by, bw, bh);
+        }
+        if (titanSubmerged && titanHp > 0) {
+            g.setComposite(alphaComp(0.55f));
+            g.setColor(new Color(0x0D9488));
+            SpriteAssets.drawVoxelRing(g, bx + bw / 2, (int) Math.round(surfaceY), (int) (s * 2.2), 2, false);
         }
         g.setClip(prevClip);
 
-        // Live dorsal spine ignition glow along Godzilla's maple-leaf fins when charging!
-        if (charging && boss == TitanMode.TitanBoss.GODZILLA) {
+        // Live dorsal spine ignition glow along Godzilla's maple-leaf fins when charging (disabled once CORE_FIN shattered!)
+        if (charging && boss == TitanMode.TitanBoss.GODZILLA && !titanCoreBroken) {
             double rem = Math.max(0.0, Math.min(1.0, 1.0 - (titanChargeUntilMs - now) / 900.0));
             double[][] dUv = {{0.7764, 0.6748}, {0.7378, 0.5059}, {0.6692, 0.3475}, {0.5976, 0.1938}};
             Color dCol = enraged ? new Color(0xFB923C) : new Color(0x22D3EE);
@@ -3133,6 +4492,77 @@ public class BoardPanel extends JPanel {
 
         if (hitFlash) {
             drawGlow(g, Color.WHITE, bx + bw * 0.45, by + bh * 0.45, bw * 0.38, 0.56f, false);
+        }
+
+        // Foreground Smoking Severed Stump FX + Interrupt Reticle on active Charging Part / Hovered Part
+        if (titanHp > 0) {
+            TitanMode.TitanPart[] allParts = TitanMode.TitanPart.values();
+            boolean[] partBrokenFlags = {titanHeadBroken, titanCoreBroken, titanBodyBroken};
+            for (int pi = 0; pi < allParts.length; pi++) {
+                if (!partBrokenFlags[pi]) continue;
+                double[] uv = SpriteAssets.getSeveredPartAnchorUv(boss, allParts[pi]);
+                double wx = bx + uv[0] * bw;
+                double wy = by + uv[1] * bh;
+                drawGlow(g, new Color(0xFB923C), wx, wy, s * 0.72, (float) (0.28 + 0.16 * chargePulse), false);
+                for (int sp = 0; sp < 4; sp++) {
+                    double phase = (elapsed * 1.45 + pi * 0.37 + sp * 0.25) % 1.0;
+                    double smokeX = wx + Math.sin(elapsed * 2.6 + sp * 1.9) * (s * 0.18) + (uv[0] < 0.45 ? -phase * s * 0.28 : phase * s * 0.28);
+                    double smokeY = wy - phase * (s * 0.95);
+                    float smokeAlpha = (float) ((1.0 - phase) * 0.62);
+                    int smokeSz = Math.max(4, (int) Math.round(s * (0.14 + phase * 0.18)));
+                    g.setComposite(alphaComp(smokeAlpha));
+                    g.setColor(phase < 0.25 ? new Color(0xF97316) : new Color(0x1E293B));
+                    g.fillRect((int) Math.round(smokeX - smokeSz * 0.5), (int) Math.round(smokeY - smokeSz * 0.5), smokeSz, smokeSz);
+                }
+            }
+            for (int[] hc : hitboxes) {
+                TitanMode.TitanPart part = TitanMode.partAtCell(boss, hc[0], hc[1], titanOffR, titanOffC);
+                if (part == null) continue;
+                boolean broken = (part == TitanMode.TitanPart.HEAD && titanHeadBroken)
+                        || (part == TitanMode.TitanPart.CORE_FIN && titanCoreBroken)
+                        || (part == TitanMode.TitanPart.BODY_TAIL && titanBodyBroken);
+                boolean isCharge = titanCastProgress > 0.0 && !titanStaggered && part == titanChargingPart;
+                boolean isHover = hoveredPart != null && part == hoveredPart;
+                int cx = layout.gridX + hc[1] * s;
+                int cy = layout.gridY + hc[0] * s;
+                if (broken) {
+                    g.setComposite(alphaComp(0.28f));
+                    g.setColor(new Color(0xEF4444));
+                    g.setStroke(roundStroke(1.5f));
+                    g.drawLine(cx + 7, cy + 7, cx + s - 7, cy + s - 7);
+                    g.drawLine(cx + s - 7, cy + 7, cx + 7, cy + s - 7);
+                }
+                if (isCharge || isHover) {
+                    Color retCol = isCharge ? (titanDpsCheckActive ? new Color(0xEF4444) : new Color(0xFACC15)) : Color.WHITE;
+                    g.setComposite(alphaComp((float) (isCharge ? (0.48 + 0.32 * chargePulse) : 0.36)));
+                    g.setColor(retCol);
+                    g.setStroke(roundStroke(isCharge ? (titanDpsCheckActive ? 2.4f : 1.9f) : 1.2f));
+                    g.drawRect(cx + 3, cy + 3, s - 7, s - 7);
+                }
+            }
+        }
+
+        // Tumbling Severed Voxel Limbs / Fins / Dragon Heads falling into ocean with splash wake
+        for (SeveredLimbFx limb : severedLimbs) {
+            double lifeFrac = Math.max(0.0, Math.min(1.0, (limb.endMs - now) / (double) Math.max(1L, limb.endMs - limb.startMs)));
+            float limbAlpha = (float) Math.min(1.0, lifeFrac * (limb.splashed ? 1.1 : 2.2));
+            if (limbAlpha <= 0.02f) continue;
+            int dw = Math.max(12, (int) Math.round(limb.sprite.getWidth() * limb.scale));
+            int dh = Math.max(12, (int) Math.round(limb.sprite.getHeight() * limb.scale));
+            drawGlow(g, limb.glow, limb.x, limb.y, Math.max(dw, dh) * 0.45, limbAlpha * 0.45f, false);
+            g.setComposite(alphaComp(limbAlpha));
+            AffineTransform prevAt = g.getTransform();
+            g.translate(limb.x, limb.y);
+            g.rotate(limb.angle);
+            g.drawImage(limb.sprite, -dw / 2, -dh / 2, dw, dh, null);
+            g.setTransform(prevAt);
+            if (!limb.splashed) {
+                g.setComposite(alphaComp(limbAlpha * 0.55f));
+                g.setColor(new Color(0xFB923C));
+                int tsz = Math.max(3, s / 8);
+                g.fillRect((int) Math.round(limb.x - limb.vx * 0.04 - tsz / 2.0),
+                        (int) Math.round(limb.y - limb.vy * 0.04 - tsz / 2.0), tsz, tsz);
+            }
         }
 
         // Layer B: Overlapping ocean surf collar + gravity ocean splash droplets IN FRONT OF waterline rim
@@ -3160,6 +4590,15 @@ public class BoardPanel extends JPanel {
             g.setComposite(alphaComp(0.26));
             g.fillRect(barX + 4, barY + 4, Math.max(2, fillW - 2), 2);
         }
+        if (titanEnrageBarrierHp > 0 && titanEnrageBarrierMaxHp > 0) {
+            double bRatio = Math.max(0.0, Math.min(1.0, titanEnrageBarrierHp / (double) titanEnrageBarrierMaxHp));
+            int bFill = (int) Math.round((barW - 6) * bRatio);
+            if (bFill > 0) {
+                g.setComposite(alphaComp(0.76));
+                g.setColor(new Color(0x38BDF8));
+                g.fillRect(barX + barW - 3 - bFill, barY + barH - 6, bFill, 3);
+            }
+        }
         g.setComposite(alphaComp(1.0));
         g.setFont(UiTokens.FONT_COORD);
         FontMetrics fm = g.getFontMetrics();
@@ -3168,13 +4607,142 @@ public class BoardPanel extends JPanel {
             case GHIDORAH -> enraged ? "STORM GHIDORAH · " : "KING GHIDORAH · ";
             case MOTHRA -> enraged ? "SOLAR MOTHRA · " : "MOTHRA · ";
         };
-        String hpText = bossLabel + titanHp + "/" + titanMaxHp + " HP";
+        String barrierSuffix = titanEnrageBarrierHp > 0 ? (" [+" + titanEnrageBarrierHp + "]") : "";
+        String hpText = bossLabel + titanHp + "/" + titanMaxHp + barrierSuffix;
         int tx = barX + (barW - fm.stringWidth(hpText)) / 2;
         int ty = barY + (barH - fm.getHeight()) / 2 + fm.getAscent();
         g.setColor(new Color(0, 0, 0, 175));
         g.drawString(hpText, tx + 1, ty + 1);
         g.setColor(Color.WHITE);
         g.drawString(hpText, tx, ty);
+
+        // 4. Compact Stagger Gauge + Cast Bar / Status Strip directly under Boss HP bar
+        int subY = barY + barH + 2;
+        if (titanStaggerThreshold > 0 && titanHp > 0) {
+            int stH = Math.max(5, Math.min(7, s / 6));
+            g.setComposite(alphaComp(0.84));
+            g.setColor(new Color(8, 15, 29));
+            g.fillRoundRect(barX, subY, barW, stH, 3, 3);
+            double stRatio = titanStaggered ? 1.0 : Math.min(1.0, titanStaggerGauge / (double) Math.max(1, titanStaggerThreshold));
+            int stFill = (int) Math.round((barW - 2) * stRatio);
+            if (stFill > 0) {
+                g.setColor(titanStaggered ? new Color(0x22D3EE) : new Color(0xF59E0B));
+                g.fillRoundRect(barX + 1, subY + 1, stFill, Math.max(2, stH - 2), 2, 2);
+            }
+            subY += stH + 2;
+        }
+        if ((titanCastProgress > 0.0 || titanStaggered) && titanHp > 0) {
+            int castH = Math.max(12, Math.min(15, s / 2 - 2));
+            g.setComposite(alphaComp(0.90));
+            g.setColor(titanDpsCheckActive ? new Color(48, 8, 16) : new Color(14, 10, 22));
+            SpriteAssets.fillChamferedBox(g, barX, subY, barW, castH, 3);
+            Color castCol = titanStaggered ? new Color(0x22D3EE)
+                    : (titanDpsCheckActive ? (chargePulse > 0.5 ? new Color(0xEF4444) : new Color(0xFACC15))
+                    : (titanCastProgress > 0.72 ? new Color(0xEF4444) : new Color(0xF97316)));
+            g.setColor(castCol);
+            SpriteAssets.drawVoxelChamferBox(g, barX, subY, barW, castH, 3, titanDpsCheckActive ? 2 : 1);
+            double cProg = titanStaggered ? 1.0 : titanCastProgress;
+            int cFill = (int) Math.round((barW - 4) * Math.max(0.0, Math.min(1.0, cProg)));
+            if (cFill > 0) {
+                g.setComposite(alphaComp(titanDpsCheckActive ? 0.85 : 0.75));
+                g.fillRect(barX + 2, subY + 2, cFill, Math.max(2, castH - 4));
+            }
+            g.setComposite(alphaComp(1.0));
+            g.setFont(UiTokens.FONT_COORD);
+            FontMetrics cfm = g.getFontMetrics();
+            String baseName = titanCastLabel.isBlank() ? "ĐANG TỤ CHIÊU" : titanCastLabel;
+            String cMsg = titanStaggered ? "★ CHOÁNG! +20% SÁT THƯƠNG ★"
+                    : (titanDpsCheckActive ? "⚠ HỦY DIỆT: " : "") + baseName
+                    + (titanChargingPart != null ? " [" + titanChargingPart.label + "]" : "");
+            int ctx = barX + Math.max(4, (barW - cfm.stringWidth(cMsg)) / 2);
+            int cty = subY + (castH - cfm.getHeight()) / 2 + cfm.getAscent();
+            Shape preCastClip = g.getClip();
+            g.clipRect(barX + 2, subY, Math.max(4, barW - 4), castH);
+            g.setColor(new Color(0, 0, 0, 200));
+            g.drawString(cMsg, ctx + 1, cty + 1);
+            g.setColor(Color.WHITE);
+            g.drawString(cMsg, ctx, cty);
+            g.setClip(preCastClip);
+            subY += castH + 2;
+        }
+        // Compact 3-Part Health Micro-Chips inside barX..barX+barW (Đầu · Lõi · Thân)
+        if (titanHp > 0 && titanStaggerThreshold > 0 && barW >= 140) {
+            int gapP = 4;
+            int pw = (barW - gapP * 2) / 3;
+            int ph = 13;
+            String[] pNames = {"Đầu", "Lõi", "Thân"};
+            boolean[] pBrk = {titanHeadBroken, titanCoreBroken, titanBodyBroken};
+            int[] pHps = {titanHeadHp, titanCoreHp, titanBodyHp};
+            int[] pMax = {titanHeadMax, titanCoreMax, titanBodyMax};
+            Color[] pCols = {new Color(0xFACC15), new Color(0x38BDF8), new Color(0x34D399)};
+            g.setFont(new java.awt.Font(java.awt.Font.SANS_SERIF, java.awt.Font.BOLD, 10));
+            FontMetrics mfm = g.getFontMetrics();
+            for (int pi = 0; pi < 3; pi++) {
+                int px = barX + pi * (pw + gapP);
+                g.setComposite(alphaComp(0.86));
+                g.setColor(new Color(8, 15, 29));
+                g.fillRoundRect(px, subY, pw, ph, 3, 3);
+                if (!pBrk[pi]) {
+                    double frac = Math.max(0.0, Math.min(1.0, pHps[pi] / (double) Math.max(1, pMax[pi])));
+                    int fill = (int) Math.round((pw - 2) * frac);
+                    if (fill > 0) {
+                        g.setComposite(alphaComp(0.58));
+                        g.setColor(pCols[pi]);
+                        g.fillRoundRect(px + 1, subY + 1, fill, ph - 2, 2, 2);
+                    }
+                }
+                g.setComposite(alphaComp(0.92));
+                g.setColor(pBrk[pi] ? new Color(0xEF4444) : pCols[pi]);
+                g.drawRoundRect(px, subY, pw, ph, 3, 3);
+                String txt = pBrk[pi] ? (pNames[pi] + ":RỤNG") : (pNames[pi] + " " + pHps[pi]);
+                int ptx = px + Math.max(2, (pw - mfm.stringWidth(txt)) / 2);
+                g.setColor(pBrk[pi] ? new Color(0xFCA5A5) : Color.WHITE);
+                g.drawString(txt, ptx, subY + 10);
+            }
+            subY += ph + 2;
+        }
+        // Status pills row (kept cleanly inside barX .. barX+barW)
+        String antiTag = null;
+        String antiHex = "#38BDF8";
+        if (titanHp > 0) {
+            if (titanStaggered) {
+                antiTag = "CHỐNG TL: KHÓA";
+                antiHex = "#34D399";
+            } else if (titanAntiMissileReady) {
+                antiTag = (titanAntiMissileTag != null && !titanAntiMissileTag.isBlank())
+                        ? ("CHẶN TL: " + titanAntiMissileTag)
+                        : "CHỐNG TL: SẴN SÀNG";
+                antiHex = titanEnraged ? "#FB7185" : "#FACC15";
+            } else if (titanAntiMissileCdMs > 0L) {
+                antiTag = String.format("MỞ CỬA TL %.1fs", titanAntiMissileCdMs / 1000.0);
+                antiHex = "#34D399";
+            }
+        }
+        if (titanHp > 0 && (titanSubmerged || titanExposed || titanChilled || titanBurnStacks > 0 || antiTag != null)) {
+            int pillX = barX;
+            g.setFont(UiTokens.FONT_COORD);
+            FontMetrics pfm = g.getFontMetrics();
+            String[][] tags = {
+                    antiTag != null ? new String[]{antiTag, antiHex} : null,
+                    titanSubmerged ? new String[]{"LẶN ẨN", "#2DD4BF"} : null,
+                    titanExposed ? new String[]{"LỘ ×1.2", "#FDE047"} : null,
+                    titanChilled ? new String[]{"CHẬM", "#38BDF8"} : null,
+                    titanBurnStacks > 0 ? new String[]{"CHÁY×" + titanBurnStacks, "#FB923C"} : null
+            };
+            for (String[] t : tags) {
+                if (t == null) continue;
+                int pw = pfm.stringWidth(t[0]) + 8;
+                if (pillX + pw > barX + barW) break;
+                Color pc = Color.decode(t[1]);
+                g.setComposite(alphaComp(0.86));
+                g.setColor(new Color(8, 15, 29));
+                g.fillRoundRect(pillX, subY, pw, 13, 4, 4);
+                g.setColor(pc);
+                g.drawRoundRect(pillX, subY, pw, 13, 4, 4);
+                g.drawString(t[0], pillX + 4, subY + 10);
+                pillX += pw + 4;
+            }
+        }
 
         g.setComposite(prevComp);
         g.setStroke(prevStroke);

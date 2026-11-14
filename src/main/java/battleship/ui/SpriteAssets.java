@@ -102,6 +102,10 @@ public final class SpriteAssets {
     private static final BufferedImage[] MUZZLE_FRAMES = new BufferedImage[MUZZLE_FRAME_COUNT];
     private static BufferedImage magicShield;
     private static final Map<String, BufferedImage> MAP_PROPS = Collections.synchronizedMap(new java.util.HashMap<>());
+    private static final Map<String, BufferedImage> STORY_ART = Collections.synchronizedMap(new java.util.HashMap<>());
+    private static final Map<String, BufferedImage> DAMAGED_TITAN_SPRITES = Collections.synchronizedMap(new java.util.HashMap<>());
+    private static final Map<String, BufferedImage> DAMAGED_TITAN_SHADOWS = Collections.synchronizedMap(new java.util.HashMap<>());
+    private static final Map<String, BufferedImage> SEVERED_PART_CHUNKS = Collections.synchronizedMap(new java.util.HashMap<>());
     private static final java.util.Set<DragonSpecies> LOADED_DRAGONS = Collections.synchronizedSet(java.util.EnumSet.noneOf(DragonSpecies.class));
     private static final Object LOCK_SHIPS = new Object();
     private static final Object LOCK_ZOMBIE_SHIPS = new Object();
@@ -114,6 +118,7 @@ public final class SpriteAssets {
     private static final Object LOCK_SHIELD_MUZZLE = new Object();
     private static final Object LOCK_DRAGONS = new Object();
     private static final Object LOCK_PROPS = new Object();
+    private static final Object LOCK_STORY = new Object();
 
     private static volatile boolean shipsLoaded;
     private static volatile boolean zombieShipsLoaded;
@@ -346,14 +351,27 @@ public final class SpriteAssets {
         }
     }
 
-    private static void ensureAllMapPropsLoaded() {
+    public static void ensureAllMapPropsLoaded() {
         if (allMapPropsLoaded) return;
         String[] keys = {
                 "fortress", "arcane", "beacon", "sun", "moon", "storm_cloud", "wave_crest",
                 "fantasy_citadel", "fantasy_sanctuary", "fantasy_portal",
                 "apoc_volcano", "apoc_ruin", "apoc_meteor",
                 "galaxy_blackhole", "galaxy_planet", "galaxy_station",
-                "atlantis_temple", "atlantis_reef", "atlantis_trident"
+                "atlantis_temple", "atlantis_reef", "atlantis_trident",
+                "cover_reef_intact", "cover_reef_cracked",
+                "sonar_buoy", "lava_fissure", "atlantis_pylon", "arcane_leynode", "gravity_node",
+                "beacon_supply", "beacon_mana", "beacon_shield",
+                "relic_capacitor", "relic_aegis", "relic_tectonic",
+                "relic_catalyst", "relic_hyperion", "relic_bastion",
+                "home_emblem", "home_badge_titan", "home_badge_zombie",
+                "home_badge_classic", "home_badge_sandbox", "home_badge_campaign", "home_badge_coop",
+                "stage_node_skirmish", "stage_node_minigame", "stage_node_zombie",
+                "stage_node_boss", "stage_star_gold", "stage_star_empty",
+                "coop_synergy_core", "coop_ally_ping",
+                "city_normal_hub", "city_normal_block", "city_normal_fort",
+                "city_zombie_hub", "city_zombie_block", "city_zombie_nest",
+                "city_boss_citadel", "city_boss_ruins", "city_boss_altar"
         };
         for (String k : keys) {
             ensureMapPropLoaded(k);
@@ -382,6 +400,46 @@ public final class SpriteAssets {
             case "atlantis_temple" -> "/sprites/map/atlantis_temple_3d.png";
             case "atlantis_reef" -> "/sprites/map/atlantis_reef_3d.png";
             case "atlantis_trident" -> "/sprites/map/atlantis_trident_3d.png";
+            case "cover_reef_intact" -> "/sprites/map/cover_reef_intact_3d.png";
+            case "cover_reef_cracked" -> "/sprites/map/cover_reef_cracked_3d.png";
+            case "sonar_buoy" -> "/sprites/map/sonar_buoy_3d.png";
+            case "lava_fissure" -> "/sprites/map/lava_fissure_3d.png";
+            case "atlantis_pylon" -> "/sprites/map/atlantis_pylon_3d.png";
+            case "arcane_leynode" -> "/sprites/map/arcane_leynode_3d.png";
+            case "gravity_node" -> "/sprites/map/gravity_node_3d.png";
+            case "beacon_supply" -> "/sprites/map/beacon_supply_3d.png";
+            case "beacon_mana" -> "/sprites/map/beacon_mana_3d.png";
+            case "beacon_shield" -> "/sprites/map/beacon_shield_3d.png";
+            case "relic_capacitor" -> "/sprites/map/relic_capacitor_3d.png";
+            case "relic_aegis" -> "/sprites/map/relic_aegis_3d.png";
+            case "relic_tectonic" -> "/sprites/map/relic_tectonic_3d.png";
+            case "relic_catalyst" -> "/sprites/map/relic_catalyst_3d.png";
+            case "relic_hyperion" -> "/sprites/map/relic_hyperion_3d.png";
+            case "relic_bastion" -> "/sprites/map/relic_bastion_3d.png";
+            case "home_emblem" -> "/sprites/map/home_emblem_battleship_3d.png";
+            case "home_badge_titan" -> "/sprites/map/home_badge_titan_3d.png";
+            case "home_badge_zombie" -> "/sprites/map/home_badge_zombie_3d.png";
+            case "home_badge_classic" -> "/sprites/map/home_badge_classic_3d.png";
+            case "home_badge_sandbox" -> "/sprites/map/home_badge_sandbox_3d.png";
+            case "home_badge_campaign" -> "/sprites/map/home_badge_campaign_3d.png";
+            case "home_badge_coop" -> "/sprites/map/home_badge_coop_3d.png";
+            case "stage_node_skirmish" -> "/sprites/map/stage_node_skirmish_3d.png";
+            case "stage_node_minigame" -> "/sprites/map/stage_node_minigame_3d.png";
+            case "stage_node_zombie" -> "/sprites/map/stage_node_zombie_3d.png";
+            case "stage_node_boss" -> "/sprites/map/stage_node_boss_3d.png";
+            case "stage_star_gold" -> "/sprites/map/stage_star_gold_3d.png";
+            case "stage_star_empty" -> "/sprites/map/stage_star_empty_3d.png";
+            case "coop_synergy_core" -> "/sprites/map/coop_synergy_core_3d.png";
+            case "coop_ally_ping" -> "/sprites/map/coop_ally_ping_3d.png";
+            case "city_normal_hub" -> "/sprites/map/city_normal_hub_3d.png";
+            case "city_normal_block" -> "/sprites/map/city_normal_block_3d.png";
+            case "city_normal_fort" -> "/sprites/map/city_normal_fort_3d.png";
+            case "city_zombie_hub" -> "/sprites/map/city_zombie_hub_3d.png";
+            case "city_zombie_block" -> "/sprites/map/city_zombie_block_3d.png";
+            case "city_zombie_nest" -> "/sprites/map/city_zombie_nest_3d.png";
+            case "city_boss_citadel" -> "/sprites/map/city_boss_citadel_3d.png";
+            case "city_boss_ruins" -> "/sprites/map/city_boss_ruins_3d.png";
+            case "city_boss_altar" -> "/sprites/map/city_boss_altar_3d.png";
             default -> null;
         };
     }
@@ -431,6 +489,46 @@ public final class SpriteAssets {
         return MAP_PROPS.get(key);
     }
 
+    public static BufferedImage getStoryArt(String key) {
+        if (key == null) return null;
+        BufferedImage cached = STORY_ART.get(key);
+        if (cached != null) return cached;
+        synchronized (LOCK_STORY) {
+            cached = STORY_ART.get(key);
+            if (cached != null) return cached;
+            String path = storyArtPath(key);
+            if (path == null) return null;
+            BufferedImage img = readImage(path);
+            if (img != null) STORY_ART.put(key, img);
+            return img;
+        }
+    }
+
+    private static String storyArtPath(String key) {
+        return switch (key) {
+            case "story_ch1_harbor" -> "/story/story_ch1_harbor.jpg";
+            case "story_ch1_zombie" -> "/story/story_ch1_zombie.jpg";
+            case "story_ch1_godzilla" -> "/story/story_ch1_godzilla.jpg";
+            case "story_ch2_fantasy" -> "/story/story_ch2_fantasy.jpg";
+            case "story_ch3_apocalypse" -> "/story/story_ch3_apocalypse.jpg";
+            case "story_ch4_galaxy" -> "/story/story_ch4_galaxy.jpg";
+            case "story_ch5_atlantis" -> "/story/story_ch5_atlantis.jpg";
+            case "story_mothra_queen" -> "/story/story_mothra_queen.jpg";
+            case "story_finale_ghidorah" -> "/story/story_finale_ghidorah.jpg";
+            case "story_epilogue_victory" -> "/story/story_epilogue_victory.jpg";
+            case "story_sad_sunken_fleet" -> "/story/story_sad_sunken_fleet.jpg";
+            case "story_sad_mothra_farewell" -> "/story/story_sad_mothra_farewell.jpg";
+            case "story_sad_vega_confession" -> "/story/story_sad_vega_confession.jpg";
+            case "story_sad_lyra_tears" -> "/story/story_sad_lyra_tears.jpg";
+            case "story_sad_atlantis_elegy" -> "/story/story_sad_atlantis_elegy.jpg";
+            case "story_sad_memorial_dawn" -> "/story/story_sad_memorial_dawn.jpg";
+            case "story_portrait_kai" -> "/story/story_portrait_kai.jpg";
+            case "story_portrait_lyra" -> "/story/story_portrait_lyra.jpg";
+            case "story_portrait_vega" -> "/story/story_portrait_vega.jpg";
+            default -> null;
+        };
+    }
+
     public static BufferedImage getZombieShipSprite(ShipType type, boolean horizontal) {
         ensureZombieShipsLoaded();
         if (type == null) return null;
@@ -471,6 +569,194 @@ public final class SpriteAssets {
             return enraged ? titanMtEnrageShadow : titanMtIdleShadow;
         }
         return enraged ? titanGzBurningShadow : titanGzIdleShadow;
+    }
+
+    /** Returns an anatomical Boss sprite with severed voxel notches & charred molten wounds matching broken parts (bitmask: 1=HEAD, 2=CORE_FIN, 4=BODY_TAIL). */
+    public static BufferedImage getDamagedTitanSprite(TitanMode.TitanBoss boss, boolean enraged, boolean charging, int brokenMask) {
+        BufferedImage base = getTitanSprite(boss, enraged, charging);
+        if (base == null || brokenMask == 0) return base;
+        String key = (boss != null ? boss.name() : "GODZILLA") + "_" + enraged + "_" + charging + "_" + brokenMask;
+        return DAMAGED_TITAN_SPRITES.computeIfAbsent(key, k -> buildDamagedTitanSprite(base, boss, brokenMask));
+    }
+
+    /** Returns the drop shadow corresponding to a damaged/severed Boss sprite so missing limbs don't cast ghost shadows. */
+    public static BufferedImage getDamagedTitanShadow(TitanMode.TitanBoss boss, boolean enraged, boolean charging, int brokenMask) {
+        if (brokenMask == 0) return getTitanShadow(boss, enraged);
+        String key = (boss != null ? boss.name() : "GODZILLA") + "_" + enraged + "_" + charging + "_" + brokenMask;
+        return DAMAGED_TITAN_SHADOWS.computeIfAbsent(key, k -> {
+            BufferedImage dmg = getDamagedTitanSprite(boss, enraged, charging, brokenMask);
+            return dmg != null ? buildDropShadow(dmg) : getTitanShadow(boss, enraged);
+        });
+    }
+
+    /** Extracts a tight cropped BufferedImage of the severed limb/fin/head chunk so it can fly off and splash into the ocean. */
+    public static BufferedImage getSeveredPartChunk(TitanMode.TitanBoss boss, boolean enraged, boolean charging, TitanMode.TitanPart part) {
+        if (part == null) return null;
+        BufferedImage base = getTitanSprite(boss, enraged, charging);
+        if (base == null) return null;
+        String key = (boss != null ? boss.name() : "GODZILLA") + "_" + enraged + "_" + charging + "_" + part.name();
+        return SEVERED_PART_CHUNKS.computeIfAbsent(key, k -> extractSeveredChunk(base, boss, part));
+    }
+
+    /** Normalized [u, v] anchor coordinates of each breakable anatomical stump on the Titan sprite. */
+    public static double[] getSeveredPartAnchorUv(TitanMode.TitanBoss boss, TitanMode.TitanPart part) {
+        TitanMode.TitanBoss b = boss != null ? boss : TitanMode.TitanBoss.GODZILLA;
+        TitanMode.TitanPart p = part != null ? part : TitanMode.TitanPart.HEAD;
+        if (b == TitanMode.TitanBoss.GHIDORAH) {
+            return switch (p) {
+                case HEAD -> new double[]{0.21, 0.57};
+                case CORE_FIN -> new double[]{0.76, 0.50};
+                case BODY_TAIL -> new double[]{0.70, 0.78};
+            };
+        }
+        if (b == TitanMode.TitanBoss.MOTHRA) {
+            return switch (p) {
+                case HEAD -> new double[]{0.35, 0.72};
+                case CORE_FIN -> new double[]{0.20, 0.34};
+                case BODY_TAIL -> new double[]{0.68, 0.72};
+            };
+        }
+        return switch (p) {
+            case HEAD -> new double[]{0.22, 0.28};
+            case CORE_FIN -> new double[]{0.70, 0.36};
+            case BODY_TAIL -> new double[]{0.74, 0.74};
+        };
+    }
+
+    private static boolean isVoxelInSeverZone(TitanMode.TitanBoss boss, int brokenMask, int px, int py, int w, int h) {
+        if (brokenMask == 0 || w <= 0 || h <= 0) return false;
+        int cellSize = 6;
+        int gx = px / cellSize;
+        int gy = py / cellSize;
+        double qU = (gx * cellSize + cellSize * 0.5) / (double) w;
+        double qV = (gy * cellSize + cellSize * 0.5) / (double) h;
+        double j = (((gx * 31 + gy * 17) & 1) == 0) ? 0.018 : -0.012;
+
+        TitanMode.TitanBoss b = boss != null ? boss : TitanMode.TitanBoss.GODZILLA;
+        if ((brokenMask & 1) != 0) { // HEAD broken
+            if (b == TitanMode.TitanBoss.GHIDORAH) {
+                if ((qU < 0.22 && qV >= 0.42 && qV <= 0.49)
+                        || (qU < 0.255 && qV > 0.49 && qV <= 0.73)) return true;
+            } else if (b == TitanMode.TitanBoss.MOTHRA) {
+                if (qU >= 0.24 && qU <= 0.47 && qV >= (0.62 + j) && qV <= 0.87) return true;
+            } else {
+                if ((qU < (0.25 + j) && qV >= 0.04 && qV <= 0.56) || (qU < (0.32 + j) && qV < 0.16)) return true;
+            }
+        }
+        if ((brokenMask & 2) != 0) { // CORE_FIN broken
+            if (b == TitanMode.TitanBoss.GHIDORAH) {
+                if (qU >= (0.68 + j) && qV >= 0.28 && qV <= 0.74) return true;
+            } else if (b == TitanMode.TitanBoss.MOTHRA) {
+                if (qU < (0.31 + j) && qV <= (0.53 + j)) return true;
+            } else {
+                if ((qU > (0.54 + j) && qV <= 0.46)
+                        || (qU > (0.62 + j) && qV > 0.46 && qV <= 0.62)
+                        || (qU > (0.72 + j) && qV > 0.62 && qV <= 0.75)) return true;
+            }
+        }
+        if ((brokenMask & 4) != 0) { // BODY_TAIL broken
+            if (b == TitanMode.TitanBoss.GHIDORAH) {
+                if ((qU >= (0.66 + j) && qV >= 0.69 && qV <= 0.91)
+                        || (qU >= 0.25 && qU <= 0.41 && qV >= (0.73 + j) && qV <= 0.89)) return true;
+            } else if (b == TitanMode.TitanBoss.MOTHRA) {
+                if (qU >= (0.56 + j) && qV >= (0.62 + j) && qV <= 0.87) return true;
+            } else {
+                if ((qU < (0.36 + j) && qV >= 0.68 && qV <= 0.89)
+                        || (qU > (0.74 + j) && qV >= 0.62 && qV <= 0.93)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static BufferedImage buildDamagedTitanSprite(BufferedImage src, TitanMode.TitanBoss boss, int brokenMask) {
+        int w = src.getWidth();
+        int h = src.getHeight();
+        BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        boolean[] cutMask = new boolean[w * h];
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int argb = src.getRGB(x, y);
+                int alpha = (argb >>> 24) & 0xFF;
+                if (isVoxelInSeverZone(boss, brokenMask, x, y, w, h)) {
+                    if (alpha > 0) cutMask[y * w + x] = true;
+                    out.setRGB(x, y, 0);
+                } else {
+                    out.setRGB(x, y, argb);
+                }
+            }
+        }
+        // Char and ember-rim solid interior voxels bordering freshly severed edges
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int idx = y * w + x;
+                if (cutMask[idx]) continue;
+                int argb = out.getRGB(x, y);
+                int alpha = (argb >>> 24) & 0xFF;
+                if (alpha < 140) continue;
+                boolean nearCut1 = false;
+                boolean nearCut4 = false;
+                for (int dy = -4; dy <= 4 && !nearCut1; dy += 2) {
+                    int ny = y + dy;
+                    if (ny < 0 || ny >= h) continue;
+                    for (int dx = -4; dx <= 4; dx += 2) {
+                        int nx = x + dx;
+                        if (nx >= 0 && nx < w && cutMask[ny * w + nx]) {
+                            nearCut4 = true;
+                            if (Math.abs(dx) <= 2 && Math.abs(dy) <= 2) {
+                                nearCut1 = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (nearCut1) {
+                    out.setRGB(x, y, (alpha << 24) | (32 << 16) | (24 << 8) | 28);
+                } else if (nearCut4) {
+                    int r = Math.min(255, (int) (((argb >> 16) & 0xFF) * 0.60) + 55);
+                    int gCol = (int) (((argb >> 8) & 0xFF) * 0.45);
+                    int bCol = (int) ((argb & 0xFF) * 0.40);
+                    out.setRGB(x, y, (alpha << 24) | (r << 16) | (gCol << 8) | bCol);
+                }
+            }
+        }
+        return out;
+    }
+
+    private static BufferedImage extractSeveredChunk(BufferedImage src, TitanMode.TitanBoss boss, TitanMode.TitanPart part) {
+        int bit = switch (part) {
+            case HEAD -> 1;
+            case CORE_FIN -> 2;
+            case BODY_TAIL -> 4;
+        };
+        int w = src.getWidth();
+        int h = src.getHeight();
+        int minX = w, minY = h, maxX = -1, maxY = -1;
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int argb = src.getRGB(x, y);
+                int alpha = (argb >>> 24) & 0xFF;
+                if (alpha >= 140 && isVoxelInSeverZone(boss, bit, x, y, w, h)) {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+        if (maxX < minX || maxY < minY) return null;
+        int cw = Math.max(8, maxX - minX + 1);
+        int ch = Math.max(8, maxY - minY + 1);
+        BufferedImage chunk = new BufferedImage(cw, ch, BufferedImage.TYPE_INT_ARGB);
+        for (int y = minY; y <= maxY; y++) {
+            for (int x = minX; x <= maxX; x++) {
+                int argb = src.getRGB(x, y);
+                int alpha = (argb >>> 24) & 0xFF;
+                if (alpha >= 140 && isVoxelInSeverZone(boss, bit, x, y, w, h)) {
+                    chunk.setRGB(x - minX, y - minY, argb);
+                }
+            }
+        }
+        return chunk;
     }
 
     public static BufferedImage getTitanSkillSprite(TitanMode.TitanSkill skill) {

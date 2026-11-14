@@ -34,6 +34,7 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /** Fleet deployment screen. Logic TODOs are reported inline and never escape the EDT. */
@@ -55,11 +56,16 @@ public class SetupPanel extends JPanel {
     private final OceanMapBackdrop.AtmospherePill weatherPill =
             new OceanMapBackdrop.AtmospherePill(OceanMapBackdrop.AtmospherePill.Kind.WEATHER);
     private final ZombieMode.ModePill modePill = new ZombieMode.ModePill();
-    private final TitanMode.TitanPill titanPill = new TitanMode.TitanPill();
+    private final TitanMode.TitanPill titanPill = new TitanMode.TitanPill(true);
+    private final TitanMode.DifficultyPill diffPill = new TitanMode.DifficultyPill();
+    private final TitanMode.RushPill rushPill = new TitanMode.RushPill();
     private JPanel titanRow;
     private final Consumer<Board> onStartGame;
     private Consumer<List<Ship>> onStartSandbox;
     private Consumer<List<Ship>> onStartTitan;
+    private BiConsumer<CampaignMode.CampaignStage, List<Ship>> onStartCampaign;
+    private CampaignMode.CampaignStage pendingCampaignStage;
+    private Runnable onBackHome;
     private ShipType selectedType = ShipType.values()[0];
     private boolean horizontal = true;
 
@@ -248,6 +254,8 @@ public class SetupPanel extends JPanel {
             SoundEngine.refreshThemeMusic();
             if (gm == ZombieMode.GameMode.TITAN) {
                 SoundEngine.playTitanRoar(TitanMode.getActiveBoss());
+            } else if (gm == ZombieMode.GameMode.ZOMBIE) {
+                SoundEngine.playZombieSkill(ZombieMode.ZombieClass.BLOOD_BATTLESHIP);
             }
             modePill.sync();
             titanPill.sync();
@@ -262,7 +270,7 @@ public class SetupPanel extends JPanel {
         mapModeRow.add(modePill);
         panel.add(mapModeRow);
 
-        titanRow = new JPanel(new BorderLayout());
+        titanRow = new JPanel(new BorderLayout(UiTokens.SPACE_XS, 0));
         titanRow.setOpaque(false);
         titanRow.setAlignmentX(LEFT_ALIGNMENT);
         titanRow.setBorder(BorderFactory.createEmptyBorder(UiTokens.SPACE_XS, 0, 0, 0));
@@ -278,7 +286,38 @@ public class SetupPanel extends JPanel {
             status("Chọn Boss: " + boss.displayName, boss.accentColor);
             repaint();
         });
+        diffPill.sync();
+        diffPill.addActionListener(event -> {
+            TitanMode.TitanDifficulty diff = TitanMode.cycleDifficulty();
+            SoundEngine.playUiClick();
+            diffPill.sync();
+            refreshControls();
+            status("Độ khó Raid: " + diff.label + " (HP ×" + diff.hpMult + ", Tốc độ ×" + diff.atbSpeedMult + ")",
+                    diff.accentColor);
+            repaint();
+        });
+        rushPill.sync();
+        rushPill.addActionListener(event -> {
+            boolean rush = TitanMode.toggleBossRush();
+            if (rush) {
+                TitanMode.setActiveBoss(TitanMode.TitanBoss.GODZILLA);
+            }
+            SoundEngine.playUiClick();
+            titanPill.sync();
+            rushPill.sync();
+            refreshControls();
+            status(rush ? "Bật Boss Rush: Godzilla → Ghidorah → Mothra kèm Tiếp Tế & Xếp Hạng!"
+                    : "Chế độ đơn: Đấu 1 Boss Titan.", rush ? new Color(0xA855F7) : UiTokens.TEXT_MUTED);
+            repaint();
+        });
+        JPanel titanEast = new JPanel();
+        titanEast.setLayout(new BoxLayout(titanEast, BoxLayout.X_AXIS));
+        titanEast.setOpaque(false);
+        titanEast.add(diffPill);
+        titanEast.add(Box.createHorizontalStrut(UiTokens.SPACE_XS));
+        titanEast.add(rushPill);
         titanRow.add(titanPill, BorderLayout.CENTER);
+        titanRow.add(titanEast, BorderLayout.EAST);
         titanRow.setVisible(ZombieMode.isTitanMode());
         panel.add(titanRow);
         panel.add(Box.createVerticalStrut(UiTokens.SPACE_SM));
@@ -294,6 +333,11 @@ public class SetupPanel extends JPanel {
         startButton.setAlignmentX(LEFT_ALIGNMENT);
         startButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, UiTokens.BUTTON_HEIGHT));
         startButton.addActionListener(event -> {
+            if (pendingCampaignStage != null && onStartCampaign != null) {
+                SoundEngine.playUiClick();
+                onStartCampaign.accept(pendingCampaignStage, getPlacedShips());
+                return;
+            }
             if (ZombieMode.isTitanMode() && onStartTitan != null) {
                 SoundEngine.playUiClick();
                 onStartTitan.accept(getPlacedShips());
@@ -383,11 +427,24 @@ public class SetupPanel extends JPanel {
 
     private void placeRandomly() {
         try {
-            playerBoard.placeRandomly();
-            placedShips.addAll(EnumSet.allOf(ShipType.class));
+            playerBoard.clear();
+            placedShips.clear();
             placedShipList.clear();
+            java.util.Random rng = new java.util.Random();
+            for (ShipType type : ShipType.values()) {
+                for (int tries = 0; tries < 500; tries++) {
+                    int r = rng.nextInt(Board.SIZE);
+                    int c = rng.nextInt(Board.SIZE);
+                    boolean horiz = rng.nextBoolean();
+                    if (playerBoard.placeShip(type, r, c, horiz)) {
+                        placedShips.add(type);
+                        placedShipList.add(new Ship(type, r, c, horiz));
+                        break;
+                    }
+                }
+            }
             SoundEngine.playShipPlace();
-            boardPanel.setKnownShips(null);
+            boardPanel.setKnownShips(placedShipList);
             selectedType = null;
             boardPanel.clearShipPreview();
             boardPanel.refresh();
@@ -426,14 +483,34 @@ public class SetupPanel extends JPanel {
             entry.getValue().update(placedShips.contains(entry.getKey()), entry.getKey() == selectedType);
         }
         boolean titan = ZombieMode.isTitanMode();
+        boolean campaignLocked = pendingCampaignStage != null;
+        mapPill.setEnabled(!campaignLocked);
+        seasonPill.setEnabled(!campaignLocked);
+        weatherPill.setEnabled(!campaignLocked);
+        modePill.setEnabled(!campaignLocked);
+        titanPill.setEnabled(!campaignLocked);
+        diffPill.setEnabled(!campaignLocked);
+        rushPill.setEnabled(!campaignLocked);
+        sandboxButton.setVisible(!campaignLocked);
         if (titanRow != null) {
-            titanRow.setVisible(titan);
+            titanRow.setVisible(titan && !campaignLocked);
             titanPill.sync();
+            diffPill.sync();
+            rushPill.sync();
         }
-        if (titan) {
+        if (campaignLocked) {
+            startButton.setText("Xuất kích Màn " + pendingCampaignStage.stageNumber());
+            startButton.setToolTipText("Vào Màn " + pendingCampaignStage.stageNumber() + ": "
+                    + pendingCampaignStage.title() + " (" + pendingCampaignStage.ruleType().shortLabel + ")");
+            startButton.setEnabled(placedShips.size() == ShipType.values().length);
+        } else if (titan) {
             TitanMode.TitanBoss b = TitanMode.getActiveBoss();
-            startButton.setText("Đấu " + b.shortLabel);
-            startButton.setToolTipText("Vào trận Đấu Boss Titan (" + b.displayName + "); tự xếp 5 tàu nếu bạn chưa đặt hết");
+            TitanMode.TitanDifficulty d = TitanMode.getDifficulty();
+            boolean rush = TitanMode.isBossRushEnabled();
+            startButton.setText(rush ? ("Boss Rush · " + d.label) : ("Đấu " + b.shortLabel));
+            startButton.setToolTipText(rush
+                    ? "Vào Boss Rush 3 Boss liên hoàn (" + d.label + "); tự xếp 5 tàu nếu chưa đặt hết"
+                    : "Vào trận Boss Titan (" + b.displayName + " · " + d.label + ")");
             startButton.setEnabled(true);
         } else {
             startButton.setText("Bắt đầu chiến đấu");
@@ -454,6 +531,52 @@ public class SetupPanel extends JPanel {
     public void setOnStartSandbox(Consumer<List<Ship>> listener) { this.onStartSandbox = listener; }
 
     public void setOnStartTitan(Consumer<List<Ship>> listener) { this.onStartTitan = listener; }
+
+    public void setOnStartCampaign(BiConsumer<CampaignMode.CampaignStage, List<Ship>> listener) {
+        this.onStartCampaign = listener;
+    }
+
+    public void setPendingCampaignStage(CampaignMode.CampaignStage stage) {
+        this.pendingCampaignStage = stage;
+        if (stage != null) {
+            OceanMapBackdrop.setMapTheme(stage.chapter().theme);
+            OceanMapBackdrop.setSeason(stage.season());
+            OceanMapBackdrop.setWeatherMode(stage.weather());
+            if (stage.isBossStage()) {
+                ZombieMode.setGameMode(ZombieMode.GameMode.TITAN);
+                TitanMode.setActiveBoss(stage.boss());
+                TitanMode.setDifficulty(stage.bossDifficulty());
+                TitanMode.setBossRushEnabled(false);
+            } else if (stage.ruleType() == CampaignMode.StageRuleType.ZOMBIE_ASSAULT) {
+                ZombieMode.setGameMode(ZombieMode.GameMode.ZOMBIE);
+            } else {
+                ZombieMode.setGameMode(ZombieMode.GameMode.CLASSIC);
+            }
+            status("Màn " + stage.stageNumber() + " · " + stage.title() + " (" + stage.ruleType().shortLabel
+                    + "). Xếp đủ 5 tàu rồi bấm Xuất kích!", stage.ruleType().accent);
+        } else {
+            status("Chọn tàu rồi chọn ô bắt đầu trên hải đồ.", UiTokens.TEXT_MUTED);
+        }
+        syncFromGlobals();
+    }
+
+    public CampaignMode.CampaignStage getPendingCampaignStage() { return pendingCampaignStage; }
+
+    public void setOnBackHome(Runnable listener) {
+        this.onBackHome = listener;
+    }
+
+    public void syncFromGlobals() {
+        mapPill.sync();
+        seasonPill.sync();
+        weatherPill.sync();
+        modePill.sync();
+        titanPill.sync();
+        diffPill.sync();
+        rushPill.sync();
+        refreshControls();
+        repaint();
+    }
 
     public void showStatus(String text) { status(text, UiTokens.STATUS_WARNING); }
 

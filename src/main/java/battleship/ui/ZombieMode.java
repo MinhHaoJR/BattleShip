@@ -135,42 +135,47 @@ public final class ZombieMode {
     }
 
     public static List<int[]> skillTargetCells(ZombieClass zc, int row, int col, boolean horizontal) {
+        int r0 = Math.max(0, Math.min(Board.SIZE - 1, row));
+        int c0 = Math.max(0, Math.min(Board.SIZE - 1, col));
         List<int[]> cells = new ArrayList<>();
         if (zc == null) {
-            addCell(cells, row, col);
+            addCell(cells, r0, c0);
             return cells;
         }
         switch (zc) {
             case PLAGUE_DESTROYER -> {
-                addCell(cells, row, col);
-                addCell(cells, row + (horizontal ? 0 : 1), col + (horizontal ? 1 : 0));
+                addCell(cells, r0, c0);
+                addCell(cells, r0 + (horizontal ? 0 : 1), c0 + (horizontal ? 1 : 0));
             }
             case BLIGHT_SUBMARINE -> {
                 for (int d = -1; d <= 1; d++) {
-                    addCell(cells, row + (horizontal ? 0 : d), col + (horizontal ? d : 0));
+                    addCell(cells, r0 + (horizontal ? 0 : d), c0 + (horizontal ? d : 0));
                 }
             }
             case NECRO_CRUISER -> {
-                addCell(cells, row, col);
-                addCell(cells, row - 1, col - 1);
-                addCell(cells, row - 1, col + 1);
-                addCell(cells, row + 1, col - 1);
-                addCell(cells, row + 1, col + 1);
+                addCell(cells, r0, c0);
+                addCell(cells, r0 - 1, c0 - 1);
+                addCell(cells, r0 - 1, c0 + 1);
+                addCell(cells, r0 + 1, c0 - 1);
+                addCell(cells, r0 + 1, c0 + 1);
             }
             case BLOOD_BATTLESHIP -> {
-                addCell(cells, row, col);
-                addCell(cells, row - 1, col);
-                addCell(cells, row + 1, col);
-                addCell(cells, row, col - 1);
-                addCell(cells, row, col + 1);
+                addCell(cells, r0, c0);
+                addCell(cells, r0 - 1, c0);
+                addCell(cells, r0 + 1, c0);
+                addCell(cells, r0, c0 - 1);
+                addCell(cells, r0, c0 + 1);
             }
             case ABYSS_CARRIER -> {
-                for (int r = row - 1; r <= row + 1; r++) {
-                    for (int c = col - 1; c <= col + 1; c++) {
+                for (int r = r0 - 1; r <= r0 + 1; r++) {
+                    for (int c = c0 - 1; c <= c0 + 1; c++) {
                         addCell(cells, r, c);
                     }
                 }
             }
+        }
+        if (cells.isEmpty()) {
+            cells.add(new int[]{r0, c0});
         }
         return cells;
     }

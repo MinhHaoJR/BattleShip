@@ -30,21 +30,21 @@ public final class TitanMode {
                 "Boss: Godzilla",
                 new Color(0x38BDF8),
                 new Color(0xF97316),
-                20
+                260
         ),
         GHIDORAH(
                 "King Ghidorah · Tam Đầu Kim Long",
                 "Boss: Ghidorah",
                 new Color(0xFACC15),
                 new Color(0xA855F7),
-                20
+                280
         ),
         MOTHRA(
                 "Mothra · Nữ Hoàng Thiên Nhiên",
                 "Boss: Mothra",
                 new Color(0x34D399),
                 new Color(0xFDE047),
-                20
+                240
         );
 
         public final String displayName;
@@ -62,6 +62,116 @@ public final class TitanMode {
         }
     }
 
+    public enum TitanDifficulty {
+        NORMAL("Thường", 1.00, 1.24, 1.25, 1.00, UiTokens.ACCENT_SIGNAL),
+        NIGHTMARE("Ác Mộng", 1.25, 1.48, 1.45, 1.35, UiTokens.STATUS_WARNING),
+        CATACLYSM("Tuyệt Diệt", 1.50, 1.72, 1.70, 1.75, UiTokens.STATUS_DANGER);
+
+        public final String label;
+        public final double hpMult;
+        public final double atbSpeedMult;
+        public final double staggerThresholdMult;
+        public final double scoreMult;
+        public final Color accentColor;
+
+        TitanDifficulty(String label, double hpMult, double atbSpeedMult,
+                        double staggerThresholdMult, double scoreMult, Color accentColor) {
+            this.label = label;
+            this.hpMult = hpMult;
+            this.atbSpeedMult = atbSpeedMult;
+            this.staggerThresholdMult = staggerThresholdMult;
+            this.scoreMult = scoreMult;
+            this.accentColor = accentColor;
+        }
+    }
+
+    /** Roguelite passive relics awarded between Boss Rush Raid encounters. */
+    public enum RaidRelic {
+        CAPACITOR("Tụ Siêu Tụ", "relic_capacitor", "-15% Hồi Chiêu Vũ Khí", new Color(0x22D3EE)),
+        AEGIS("Lõi Aegis", "relic_aegis", "-22% Hao Khiên & +25% Nạp Khiên", new Color(0x38BDF8)),
+        TECTONIC("Địa Chấn", "relic_tectonic", "+25% Lực Ngắt Chiêu & Sát Thương Bộ Phận", new Color(0xF59E0B)),
+        CATALYST("Xúc Tác", "relic_catalyst", "+35% Sát Thương Phản Ứng & Cháy", new Color(0xFB7185)),
+        HYPERION_CELL("Pin Hyperion", "relic_hyperion", "+30% Hồi Mana & +25% Nạp Siêu Tàu", new Color(0xA855F7)),
+        BASTION("Pháo Đài Đảo", "relic_bastion", "Đá Chắn 3 HP & +1 Trạm Tiếp Tế", new Color(0x34D399));
+
+        public final String title;
+        public final String spriteKey;
+        public final String summary;
+        public final Color accentColor;
+
+        RaidRelic(String title, String spriteKey, String summary, Color accentColor) {
+            this.title = title;
+            this.spriteKey = spriteKey;
+            this.summary = summary;
+            this.accentColor = accentColor;
+        }
+    }
+
+    /** Dynamic mid-battle Tactical Directives rewarding active maneuvering & combo play. */
+    public enum DirectiveType {
+        STAGGER_WINDOW(
+                "NGẮT CHIÊU ĐÚNG LÚC!",
+                "Bắn Bộ Phận Tụ hoặc Ngắt Chiêu",
+                "+2 Mana · +20% Siêu Tàu",
+                new Color(0x22D3EE),
+                11_000L
+        ),
+        BEACON_RUN(
+                "THU THẬP TÍN HIỆU!",
+                "Lái tàu lướt qua Trạm / Nút Năng Lượng",
+                "+2 Mana · Vá 1 Ô · +15% Khiên",
+                new Color(0x34D399),
+                10_000L
+        ),
+        ELEMENTAL_COMBO(
+                "PHẢN ỨNG NGUYÊN TỐ!",
+                "Kích hoạt Tan Chảy / Sốc Nhiệt / Siêu Dẫn",
+                "+3 Mana · +18 ST Chuẩn",
+                new Color(0xF59E0B),
+                12_000L
+        ),
+        WEAKPOINT_STRIKE(
+                "OANH TẠC ĐIỂM YẾU!",
+                "Bắn trúng Đầu hoặc Vây Lõi Boss",
+                "+15% Siêu Tàu · -1.2s CD",
+                new Color(0xFACC15),
+                9_000L
+        ),
+        DODGE_DANCE(
+                "NÉ ĐÒN CHUẨN XÁC!",
+                "Tránh 0-hit chiêu Boss hoặc Đỡ Khiên Hoàn Hảo",
+                "+2 Mana · +18% Siêu Tàu",
+                new Color(0xA855F7),
+                12_000L
+        );
+
+        public final String title;
+        public final String objective;
+        public final String rewardLabel;
+        public final Color accentColor;
+        public final long durationMs;
+
+        DirectiveType(String title, String objective, String rewardLabel, Color accentColor, long durationMs) {
+            this.title = title;
+            this.objective = objective;
+            this.rewardLabel = rewardLabel;
+            this.accentColor = accentColor;
+            this.durationMs = durationMs;
+        }
+    }
+
+    /** Concise description of interactive map mechanics for the selected ocean stage theme. */
+    public static String stageMechanicsSummary(OceanMapBackdrop.MapTheme theme) {
+        if (theme == null) theme = OceanMapBackdrop.MapTheme.NAVAL_CITADEL;
+        return switch (theme) {
+            case NAVAL_CITADEL -> "Dòng Hải Lưu (-40% CD Né) + Phao Sonar (Quét 3 điểm yếu)";
+            case APOCALYPSE -> "Khe Nham Thạch (Cảnh báo 1.5s -> Cháy & +25% ST Lửa)";
+            case ABYSSAL_ATLANTIS -> "2 Trụ Mana Cổ Ngữ (+2 Mana & +10% Siêu Tàu khi lướt qua)";
+            case FANTASY_REALM -> "2 Vòng Kết Giới (-35% CD Vũ Khí & +4% Khiên/s khi đậu lên)";
+            case GALAXY_COSMOS -> "Trọng Lực Thấp (-35% CD Né, Lướt 2 ô) + Thiên Thạch Vỡ (+2 Mana)";
+        };
+    }
+
     public enum TitanSkill {
         GZ_TAIL_SLAM(
                 TitanBoss.GODZILLA,
@@ -72,7 +182,7 @@ public final class TitanMode {
                 false,
                 false,
                 false,
-                30
+                38
         ),
         GZ_ATOMIC_BREATH(
                 TitanBoss.GODZILLA,
@@ -83,7 +193,7 @@ public final class TitanMode {
                 true,
                 true,
                 false,
-                35
+                44
         ),
         GZ_THERMO_PULSE(
                 TitanBoss.GODZILLA,
@@ -94,7 +204,7 @@ public final class TitanMode {
                 true,
                 false,
                 false,
-                40
+                50
         ),
         GZ_SPIRAL_RAY(
                 TitanBoss.GODZILLA,
@@ -105,7 +215,7 @@ public final class TitanMode {
                 true,
                 true,
                 true,
-                48
+                58
         ),
         GZ_MELTDOWN_RIFT(
                 TitanBoss.GODZILLA,
@@ -116,7 +226,7 @@ public final class TitanMode {
                 true,
                 false,
                 true,
-                55
+                68
         ),
         KG_TRIPLE_GRAVITY(
                 TitanBoss.GHIDORAH,
@@ -127,7 +237,7 @@ public final class TitanMode {
                 false,
                 true,
                 false,
-                32
+                40
         ),
         KG_HURRICANE_WING(
                 TitanBoss.GHIDORAH,
@@ -138,7 +248,7 @@ public final class TitanMode {
                 false,
                 false,
                 false,
-                30
+                38
         ),
         KG_OMEGA_VORTEX(
                 TitanBoss.GHIDORAH,
@@ -149,7 +259,7 @@ public final class TitanMode {
                 true,
                 false,
                 false,
-                40
+                50
         ),
         KG_ALPHA_STORM(
                 TitanBoss.GHIDORAH,
@@ -160,7 +270,7 @@ public final class TitanMode {
                 true,
                 true,
                 true,
-                48
+                58
         ),
         KG_CATACLYSM_GRAVITY(
                 TitanBoss.GHIDORAH,
@@ -171,7 +281,7 @@ public final class TitanMode {
                 true,
                 false,
                 true,
-                55
+                68
         ),
         MT_WING_GALE(
                 TitanBoss.MOTHRA,
@@ -182,7 +292,7 @@ public final class TitanMode {
                 false,
                 false,
                 false,
-                30
+                38
         ),
         MT_GOD_RAY(
                 TitanBoss.MOTHRA,
@@ -193,7 +303,7 @@ public final class TitanMode {
                 true,
                 true,
                 false,
-                36
+                45
         ),
         MT_SILK_WEB(
                 TitanBoss.MOTHRA,
@@ -204,7 +314,7 @@ public final class TitanMode {
                 true,
                 false,
                 false,
-                38
+                48
         ),
         MT_PRISM_RAIN(
                 TitanBoss.MOTHRA,
@@ -215,7 +325,7 @@ public final class TitanMode {
                 true,
                 false,
                 true,
-                48
+                58
         ),
         MT_SOLAR_SUPERNOVA(
                 TitanBoss.MOTHRA,
@@ -226,7 +336,7 @@ public final class TitanMode {
                 true,
                 true,
                 true,
-                55
+                68
         );
 
         public final TitanBoss boss;
@@ -264,6 +374,8 @@ public final class TitanMode {
 
     private static volatile TitanBoss activeBoss = TitanBoss.GODZILLA;
     private static volatile boolean titanEnraged = false;
+    private static volatile TitanDifficulty activeDifficulty = TitanDifficulty.NORMAL;
+    private static volatile boolean bossRushEnabled = false;
 
     private TitanMode() { }
 
@@ -279,6 +391,42 @@ public final class TitanMode {
         activeBoss = values[(activeBoss.ordinal() + 1) % values.length];
         titanEnraged = false;
         return activeBoss;
+    }
+
+    public static TitanDifficulty getDifficulty() { return activeDifficulty; }
+
+    public static void setDifficulty(TitanDifficulty diff) {
+        activeDifficulty = diff != null ? diff : TitanDifficulty.NORMAL;
+    }
+
+    public static TitanDifficulty cycleDifficulty() {
+        TitanDifficulty[] vals = TitanDifficulty.values();
+        activeDifficulty = vals[(activeDifficulty.ordinal() + 1) % vals.length];
+        return activeDifficulty;
+    }
+
+    public static boolean isBossRushEnabled() { return bossRushEnabled; }
+
+    public static void setBossRushEnabled(boolean enabled) { bossRushEnabled = enabled; }
+
+    public static boolean toggleBossRush() {
+        bossRushEnabled = !bossRushEnabled;
+        return bossRushEnabled;
+    }
+
+    public static TitanBoss nextBossInRush(TitanBoss current) {
+        if (current == null) return TitanBoss.GODZILLA;
+        return switch (current) {
+            case GODZILLA -> TitanBoss.GHIDORAH;
+            case GHIDORAH -> TitanBoss.MOTHRA;
+            case MOTHRA -> null;
+        };
+    }
+
+    public static int scaledMaxHp(TitanBoss boss, TitanDifficulty diff) {
+        TitanBoss b = boss != null ? boss : activeBoss;
+        TitanDifficulty d = diff != null ? diff : TitanDifficulty.NORMAL;
+        return Math.max(1, (int) Math.round(b.maxHp * d.hpMult));
     }
 
     public static boolean isTitanEnraged() { return titanEnraged; }
@@ -303,6 +451,35 @@ public final class TitanMode {
             if (skill.boss == b && (enraged || !skill.phase2Only)) out.add(skill);
         }
         return out;
+    }
+
+    public record AntiMissileSpec(
+            String skillName,
+            String bannerText,
+            Color primaryColor,
+            Color hotColor,
+            boolean radialPulse
+    ) { }
+
+    public static AntiMissileSpec antiMissileSpec(TitanBoss boss, boolean enraged) {
+        TitanBoss b = boss != null ? boss : activeBoss;
+        return switch (b) {
+            case GODZILLA -> enraged
+                    ? new AntiMissileSpec("Thermo Xung Kích", "BURNING GODZILLA · THERMO ĐÁNH CHẶN!",
+                    new Color(0xEA580C), new Color(0xFEF08A), true)
+                    : new AntiMissileSpec("Tia Nguyên Tử Chặn", "GODZILLA · NĂNG LƯỢNG NGUYÊN TỬ ĐÁNH CHẶN!",
+                    new Color(0x22D3EE), new Color(0xECFEFF), false);
+            case GHIDORAH -> enraged
+                    ? new AntiMissileSpec("Bão Từ Trường Alpha", "GHIDORAH THỨC TỈNH · BÃO TỪ TRƯỜNG CHẶN ĐẠN!",
+                    new Color(0xC084FC), new Color(0xFDE047), true)
+                    : new AntiMissileSpec("Tam Đầu Lôi Chặn", "GHIDORAH · TAM ĐẦU LÔI QUANG ĐÁNH CHẶN!",
+                    new Color(0xFACC15), new Color(0xFEF9C3), false);
+            case MOTHRA -> enraged
+                    ? new AntiMissileSpec("Hào Quang Solar", "SOLAR MOTHRA · HÀO QUANG TRIỆT TIÊU TÊN LỬA!",
+                    new Color(0xFB7185), new Color(0xFEF08A), true)
+                    : new AntiMissileSpec("Phấn Tơ Chặn Đạn", "MOTHRA · LƯỚI TƠ PHẤN QUANG CHẶN TÊN LỬA!",
+                    new Color(0x2DD4BF), new Color(0xE0F2FE), false);
+        };
     }
 
     public static CombatLoadout.MagicOption impactZoneMagic(TitanSkill skill) {
@@ -367,12 +544,14 @@ public final class TitanMode {
                 addCell(cells, row, col + 2);
             }
             case KG_TRIPLE_GRAVITY -> {
-                // 3-head diverging gravity strikes across 5 tactical cells
+                // 3-head diverging gravity strikes across 5 tactical cells (kept inside 10x10 edges)
+                int cr = Math.max(1, Math.min(Board.SIZE - 2, row));
+                int cc = Math.max(1, Math.min(Board.SIZE - 2, col));
                 addCell(cells, row, col);
-                addCell(cells, row - 2, col - 1);
-                addCell(cells, row + 2, col - 1);
-                addCell(cells, row - 1, col + 2);
-                addCell(cells, row + 1, col + 2);
+                addCell(cells, cr - 2, cc - 1);
+                addCell(cells, cr + 2, cc - 1);
+                addCell(cells, cr - 1, cc + 2);
+                addCell(cells, cr + 1, cc + 2);
             }
             case KG_HURRICANE_WING -> {
                 addCell(cells, row, col);
@@ -416,60 +595,238 @@ public final class TitanMode {
         return cells;
     }
 
-    /** Returns the 20 anatomical colossus hitbox cells on the right 10x10 Titan Arena board. */
-    public static List<int[]> generateHitboxCells(TitanBoss boss) {
+    /** Breakable anatomical Kaiju zones for Hybrid Real-Time Raid targeting and interrupts. */
+    public enum TitanPart {
+        HEAD("Đầu / Miệng", 1.35, 1.45),
+        CORE_FIN("Lõi / Vây / Cánh", 1.22, 1.28),
+        BODY_TAIL("Thân / Đuôi", 0.92, 0.85);
+
+        public final String label;
+        public final double damageMult;
+        public final double staggerMult;
+
+        TitanPart(String label, double damageMult, double staggerMult) {
+            this.label = label;
+            this.damageMult = damageMult;
+            this.staggerMult = staggerMult;
+        }
+    }
+
+    /** Environmental floor hazards spawned by Boss skills on the player's fleet grid. */
+    public enum HazardType {
+        NONE("Bình thường", UiTokens.TEXT_MUTED),
+        BURN("Vùng Dung Nham", UiTokens.MAGIC_FIRE),
+        SHOCK("Xoáy Điện Từ", UiTokens.MAGIC_LIGHTNING),
+        SILK_SLOW("Tơ Kén Trói", UiTokens.MAGIC_FROST);
+
+        public final String label;
+        public final Color accent;
+
+        HazardType(String label, Color accent) {
+            this.label = label;
+            this.accent = accent;
+        }
+    }
+
+    private record PartCell(int r, int c, TitanPart part) { }
+
+    private static List<PartCell> basePartLayout(TitanBoss boss) {
         if (boss == TitanBoss.GHIDORAH) {
             return List.of(
-                    // 3 Dragon Heads & Necks (left-facing tri-crown in cols B-D, rows 3-5)
-                    new int[]{3, 2}, new int[]{4, 1}, new int[]{4, 2}, new int[]{5, 2}, new int[]{4, 3},
-                    // Armored Golden Chest / Torso (cols D-E, rows 5-8)
-                    new int[]{5, 3}, new int[]{5, 4}, new int[]{6, 3}, new int[]{6, 4}, new int[]{7, 4}, new int[]{8, 4},
-                    // Spread Twin Golden Wings (cols E-H, rows 2-6)
-                    new int[]{2, 5}, new int[]{3, 5}, new int[]{3, 6},
-                    new int[]{4, 5}, new int[]{4, 6}, new int[]{5, 5}, new int[]{5, 6},
-                    // Twin Tails (cols G-H, rows 6-7)
-                    new int[]{6, 7}, new int[]{7, 7}
+                    new PartCell(3, 2, TitanPart.HEAD), new PartCell(4, 1, TitanPart.HEAD),
+                    new PartCell(4, 2, TitanPart.HEAD), new PartCell(5, 2, TitanPart.HEAD),
+                    new PartCell(4, 3, TitanPart.HEAD),
+                    new PartCell(5, 4, TitanPart.CORE_FIN), new PartCell(2, 5, TitanPart.CORE_FIN),
+                    new PartCell(3, 5, TitanPart.CORE_FIN), new PartCell(3, 6, TitanPart.CORE_FIN),
+                    new PartCell(4, 5, TitanPart.CORE_FIN), new PartCell(4, 6, TitanPart.CORE_FIN),
+                    new PartCell(5, 5, TitanPart.CORE_FIN), new PartCell(5, 6, TitanPart.CORE_FIN),
+                    new PartCell(5, 3, TitanPart.BODY_TAIL), new PartCell(6, 3, TitanPart.BODY_TAIL),
+                    new PartCell(6, 4, TitanPart.BODY_TAIL), new PartCell(7, 4, TitanPart.BODY_TAIL),
+                    new PartCell(8, 4, TitanPart.BODY_TAIL), new PartCell(6, 7, TitanPart.BODY_TAIL),
+                    new PartCell(7, 7, TitanPart.BODY_TAIL)
             );
         }
         if (boss == TitanBoss.MOTHRA) {
-            // 20-cell Mothra butterfly silhouette hovering slightly left-facing
             return List.of(
-                    // Head & Luminous Eyes (cols C-D, rows 4-5)
-                    new int[]{4, 2}, new int[]{4, 3}, new int[]{5, 3},
-                    // Thorax & Abdomen Core (cols E-F, rows 4-6)
-                    new int[]{4, 4}, new int[]{5, 4}, new int[]{6, 4}, new int[]{5, 5}, new int[]{6, 5},
-                    // Towering Upper Luminous Forewings (rows 1-3, cols E-H)
-                    new int[]{1, 6}, new int[]{1, 7}, new int[]{2, 5}, new int[]{2, 6},
-                    new int[]{2, 7}, new int[]{3, 4}, new int[]{3, 5}, new int[]{3, 6},
-                    // Swept Hindwings & Wingtips (rows 4,6,7)
-                    new int[]{4, 5}, new int[]{4, 6}, new int[]{6, 6}, new int[]{7, 5}
+                    new PartCell(4, 2, TitanPart.HEAD), new PartCell(4, 3, TitanPart.HEAD),
+                    new PartCell(5, 3, TitanPart.HEAD),
+                    new PartCell(4, 4, TitanPart.CORE_FIN), new PartCell(5, 4, TitanPart.CORE_FIN),
+                    new PartCell(5, 5, TitanPart.CORE_FIN), new PartCell(1, 6, TitanPart.CORE_FIN),
+                    new PartCell(1, 7, TitanPart.CORE_FIN), new PartCell(2, 5, TitanPart.CORE_FIN),
+                    new PartCell(2, 6, TitanPart.CORE_FIN), new PartCell(2, 7, TitanPart.CORE_FIN),
+                    new PartCell(3, 4, TitanPart.CORE_FIN), new PartCell(3, 5, TitanPart.CORE_FIN),
+                    new PartCell(3, 6, TitanPart.CORE_FIN),
+                    new PartCell(6, 4, TitanPart.BODY_TAIL), new PartCell(6, 5, TitanPart.BODY_TAIL),
+                    new PartCell(4, 5, TitanPart.BODY_TAIL), new PartCell(4, 6, TitanPart.BODY_TAIL),
+                    new PartCell(6, 6, TitanPart.BODY_TAIL), new PartCell(7, 5, TitanPart.BODY_TAIL)
             );
         }
-        // GODZILLA 20-cell kaiju silhouette (Head B3, Dorsal Atomic Fins D-E 2-5, Chest & Legs B-E 4-8, Tail F-H 6-7)
         return List.of(
-                // Head & Jaws (weakpoint crown)
-                new int[]{2, 1}, new int[]{2, 2}, new int[]{3, 2},
-                // Dorsal Atomic Spines (weakpoints along back ridge)
-                new int[]{2, 4}, new int[]{3, 4}, new int[]{4, 4}, new int[]{5, 4}, new int[]{4, 5},
-                // Armored Torso & Pillar Legs
-                new int[]{3, 3}, new int[]{4, 2}, new int[]{4, 3},
-                new int[]{5, 2}, new int[]{5, 3},
-                new int[]{6, 2}, new int[]{6, 3},
-                new int[]{7, 3}, new int[]{7, 4},
-                // Sweeping Spiked Tail
-                new int[]{6, 5}, new int[]{6, 6}, new int[]{7, 7}
+                new PartCell(2, 1, TitanPart.HEAD), new PartCell(2, 2, TitanPart.HEAD),
+                new PartCell(3, 2, TitanPart.HEAD),
+                new PartCell(2, 4, TitanPart.CORE_FIN), new PartCell(3, 4, TitanPart.CORE_FIN),
+                new PartCell(4, 4, TitanPart.CORE_FIN), new PartCell(5, 4, TitanPart.CORE_FIN),
+                new PartCell(4, 5, TitanPart.CORE_FIN),
+                new PartCell(3, 3, TitanPart.BODY_TAIL), new PartCell(4, 2, TitanPart.BODY_TAIL),
+                new PartCell(4, 3, TitanPart.BODY_TAIL), new PartCell(5, 2, TitanPart.BODY_TAIL),
+                new PartCell(5, 3, TitanPart.BODY_TAIL), new PartCell(6, 2, TitanPart.BODY_TAIL),
+                new PartCell(6, 3, TitanPart.BODY_TAIL), new PartCell(7, 3, TitanPart.BODY_TAIL),
+                new PartCell(7, 4, TitanPart.BODY_TAIL), new PartCell(6, 5, TitanPart.BODY_TAIL),
+                new PartCell(6, 6, TitanPart.BODY_TAIL), new PartCell(7, 7, TitanPart.BODY_TAIL)
         );
+    }
+
+    /** Returns the 20 anatomical colossus hitbox cells on the right 10x10 Titan Arena board. */
+    public static List<int[]> generateHitboxCells(TitanBoss boss) {
+        return generateHitboxCells(boss, 0, 0);
+    }
+
+    /** Returns anatomical hitbox cells shifted by the Boss's current arena offset (offR, offC). */
+    public static List<int[]> generateHitboxCells(TitanBoss boss, int offR, int offC) {
+        List<PartCell> layout = basePartLayout(boss);
+        List<int[]> cells = new ArrayList<>(layout.size());
+        for (PartCell pc : layout) {
+            addCell(cells, pc.r + offR, pc.c + offC);
+        }
+        return cells;
+    }
+
+    /** Returns all hitbox cells belonging to a specific TitanPart after arena offset shift. */
+    public static List<int[]> partCells(TitanBoss boss, TitanPart part, int offR, int offC) {
+        if (part == null) return List.of();
+        List<int[]> cells = new ArrayList<>();
+        for (PartCell pc : basePartLayout(boss)) {
+            if (pc.part == part) addCell(cells, pc.r + offR, pc.c + offC);
+        }
+        return cells;
+    }
+
+    /** Identifies which anatomical part occupies arena cell (r, c) given Boss offset (offR, offC), or null if water. */
+    public static TitanPart partAtCell(TitanBoss boss, int r, int c, int offR, int offC) {
+        for (PartCell pc : basePartLayout(boss)) {
+            if (pc.r + offR == r && pc.c + offC == c) return pc.part;
+        }
+        return null;
     }
 
     /** Returns high-value anatomical weakpoints (Heads / Dorsal Reactor / Wing Eyespots) for critical glow markers & Sonar reveals. */
     public static List<int[]> generateWeakpointCells(TitanBoss boss) {
+        return generateWeakpointCells(boss, 0, 0);
+    }
+
+    public static List<int[]> generateWeakpointCells(TitanBoss boss, int offR, int offC) {
+        List<int[]> base;
         if (boss == TitanBoss.GHIDORAH) {
-            return List.of(new int[]{3, 2}, new int[]{4, 1}, new int[]{5, 2}, new int[]{4, 3}, new int[]{5, 4});
+            base = List.of(new int[]{3, 2}, new int[]{4, 1}, new int[]{5, 2}, new int[]{4, 3}, new int[]{5, 4});
+        } else if (boss == TitanBoss.MOTHRA) {
+            base = List.of(new int[]{4, 2}, new int[]{4, 4}, new int[]{2, 6}, new int[]{3, 5}, new int[]{5, 5});
+        } else {
+            base = List.of(new int[]{2, 1}, new int[]{2, 2}, new int[]{2, 4}, new int[]{3, 4}, new int[]{4, 4});
         }
-        if (boss == TitanBoss.MOTHRA) {
-            return List.of(new int[]{4, 2}, new int[]{4, 4}, new int[]{2, 6}, new int[]{3, 5}, new int[]{5, 5});
+        if (offR == 0 && offC == 0) return base;
+        List<int[]> shifted = new ArrayList<>(base.size());
+        for (int[] c : base) addCell(shifted, c[0] + offR, c[1] + offC);
+        return shifted;
+    }
+
+    public static int weaponBaseCellDamage(CombatLoadout.WeaponOption w) {
+        if (w == null) return 12;
+        return switch (w) {
+            case CANNON -> 12;
+            case TORPEDO -> 11;
+            case MISSILE_CROSS -> 9;
+            case AIRSTRIKE -> 6;
+        };
+    }
+
+    public static long weaponCooldownMs(CombatLoadout.WeaponOption w) {
+        if (w == null) return 1150L;
+        return switch (w) {
+            case CANNON -> 1150L;
+            case TORPEDO -> 3100L;
+            case MISSILE_CROSS -> 4400L;
+            case AIRSTRIKE -> 5600L;
+        };
+    }
+
+    public static int weaponStaggerPower(CombatLoadout.WeaponOption w, CombatLoadout.MagicOption m) {
+        int base = switch (w != null ? w : CombatLoadout.WeaponOption.CANNON) {
+            case CANNON -> 10;
+            case TORPEDO -> 18;
+            case MISSILE_CROSS -> 22;
+            case AIRSTRIKE -> 26;
+        };
+        if (m == CombatLoadout.MagicOption.LIGHTNING) base += 12;
+        else if (m == CombatLoadout.MagicOption.FROST) base += 6;
+        return base;
+    }
+
+    public static TitanPart chargingPartForSkill(TitanSkill skill) {
+        if (skill == null) return TitanPart.HEAD;
+        return switch (skill) {
+            case GZ_ATOMIC_BREATH, GZ_SPIRAL_RAY, KG_TRIPLE_GRAVITY, KG_ALPHA_STORM, MT_GOD_RAY -> TitanPart.HEAD;
+            case GZ_THERMO_PULSE, GZ_MELTDOWN_RIFT, KG_HURRICANE_WING, KG_OMEGA_VORTEX,
+                    KG_CATACLYSM_GRAVITY, MT_WING_GALE, MT_PRISM_RAIN, MT_SOLAR_SUPERNOVA -> TitanPart.CORE_FIN;
+            case GZ_TAIL_SLAM, MT_SILK_WEB -> TitanPart.BODY_TAIL;
+        };
+    }
+
+    public static long skillCastDurationMs(TitanSkill skill, boolean enraged) {
+        long base = switch (skill != null ? skill : TitanSkill.GZ_TAIL_SLAM) {
+            case GZ_TAIL_SLAM, KG_HURRICANE_WING, MT_WING_GALE -> 2600L;
+            case GZ_ATOMIC_BREATH, KG_TRIPLE_GRAVITY, MT_GOD_RAY, MT_SILK_WEB -> 3100L;
+            case GZ_THERMO_PULSE, KG_OMEGA_VORTEX -> 3300L;
+            case GZ_SPIRAL_RAY, KG_ALPHA_STORM, MT_PRISM_RAIN -> 2950L;
+            case GZ_MELTDOWN_RIFT, KG_CATACLYSM_GRAVITY, MT_SOLAR_SUPERNOVA -> 3400L;
+        };
+        return enraged ? Math.round(base * 0.78) : base;
+    }
+
+    public static int staggerThresholdFor(TitanBoss boss, boolean enraged) {
+        int base = switch (boss != null ? boss : TitanBoss.GODZILLA) {
+            case GHIDORAH -> 96;
+            case MOTHRA -> 82;
+            case GODZILLA -> 88;
+        };
+        return enraged ? base + 28 : base;
+    }
+
+    public static HazardType hazardTypeForSkill(TitanSkill skill) {
+        if (skill == null || !skill.leavesImpactZone) return HazardType.NONE;
+        return switch (skill) {
+            case GZ_THERMO_PULSE, GZ_SPIRAL_RAY, GZ_MELTDOWN_RIFT, MT_SOLAR_SUPERNOVA -> HazardType.BURN;
+            case MT_SILK_WEB -> HazardType.SILK_SLOW;
+            case KG_OMEGA_VORTEX, KG_ALPHA_STORM, KG_CATACLYSM_GRAVITY, MT_PRISM_RAIN, GZ_ATOMIC_BREATH, MT_GOD_RAY -> HazardType.SHOCK;
+            default -> HazardType.NONE;
+        };
+    }
+
+    public static int[] windPushDelta(EnvironmentAction env) {
+        if (env == null || env.waveIntensity < 3) return new int[]{0, 0};
+        int dr = Math.abs(env.windY) >= 0.9 ? (env.windY > 0 ? 1 : -1) : 0;
+        int dc = Math.abs(env.windX) >= 3.8 ? (env.windX > 0 ? 1 : -1) : 0;
+        return new int[]{dr, dc};
+    }
+
+    public static TitanSkill cataclysmSkillFor(TitanBoss boss) {
+        return switch (boss != null ? boss : TitanBoss.GODZILLA) {
+            case GHIDORAH -> TitanSkill.KG_CATACLYSM_GRAVITY;
+            case MOTHRA -> TitanSkill.MT_SOLAR_SUPERNOVA;
+            case GODZILLA -> TitanSkill.GZ_MELTDOWN_RIFT;
+        };
+    }
+
+    /** 13-cell star+cross cataclysm zone used during Phase 2 DPS Check Ultimates. */
+    public static List<int[]> cataclysmTargetCells(int row, int col) {
+        List<int[]> cells = new ArrayList<>(13);
+        for (int dr = -1; dr <= 1; dr++) {
+            for (int dc = -1; dc <= 1; dc++) addCell(cells, row + dr, col + dc);
         }
-        return List.of(new int[]{2, 1}, new int[]{2, 2}, new int[]{2, 4}, new int[]{3, 4}, new int[]{4, 4});
+        addCell(cells, row - 2, col);
+        addCell(cells, row + 2, col);
+        addCell(cells, row, col - 2);
+        addCell(cells, row, col + 2);
+        return cells;
     }
 
     /** Environmental manipulation specification: physical ocean water blow, sea-floor quake, and dynamic weather/season/map shifts. */
@@ -623,8 +980,14 @@ public final class TitanMode {
     /** Frosted-glass pill cycling between Godzilla, King Ghidorah, and Mothra Bosses without text clipping. */
     public static final class TitanPill extends JButton {
         private Color accent = UiTokens.ACCENT_SIGNAL;
+        private final boolean compact;
 
         public TitanPill() {
+            this(false);
+        }
+
+        public TitanPill(boolean compact) {
+            this.compact = compact;
             setFont(UiTokens.FONT_META);
             setContentAreaFilled(false);
             setBorderPainted(false);
@@ -633,12 +996,22 @@ public final class TitanMode {
             setRolloverEnabled(true);
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             FontMetrics fm = getFontMetrics(UiTokens.FONT_META);
-            int maxW = 70;
-            for (TitanBoss tb : TitanBoss.values()) maxW = Math.max(maxW, fm.stringWidth(tb.shortLabel));
-            Dimension pref = new Dimension(maxW + 24, UiTokens.CHIP_HEIGHT);
+            int maxW = compact ? 64 : 70;
+            for (TitanBoss tb : TitanBoss.values()) maxW = Math.max(maxW, fm.stringWidth(pillText(tb)));
+            Dimension pref = new Dimension(maxW + (compact ? 24 : 18), UiTokens.CHIP_HEIGHT);
             setPreferredSize(pref);
             setMinimumSize(pref);
             sync();
+        }
+
+        private String pillText(TitanBoss boss) {
+            TitanBoss b = boss != null ? boss : TitanBoss.GODZILLA;
+            if (!compact) return b.shortLabel;
+            return switch (b) {
+                case GHIDORAH -> "Ghidorah";
+                case MOTHRA -> "Mothra";
+                case GODZILLA -> "Godzilla";
+            };
         }
 
         public void sync() {
@@ -647,7 +1020,7 @@ public final class TitanMode {
 
         public void sync(TitanBoss displayedBoss) {
             TitanBoss boss = displayedBoss != null ? displayedBoss : getActiveBoss();
-            setText(boss.shortLabel);
+            setText(pillText(boss));
             this.accent = boss.accentColor;
             setToolTipText("Đổi Boss Titan (Godzilla / King Ghidorah / Mothra) · Đang chọn: " + boss.displayName);
             repaint();
@@ -694,6 +1067,115 @@ public final class TitanMode {
             int textY = (h - fm.getHeight()) / 2 + fm.getAscent();
             g.drawString(getText(), textX, textY);
             g.dispose();
+        }
+    }
+
+    private static void paintFrostedPill(JButton btn, Graphics graphics, Color accent) {
+        Graphics2D g = (Graphics2D) graphics.create();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        int w = btn.getWidth();
+        int h = btn.getHeight();
+        int arc = UiTokens.BORDER_RADIUS;
+        boolean pressed = btn.getModel().isPressed();
+        boolean hover = btn.getModel().isRollover();
+
+        Color topBg = pressed ? new Color(15, 23, 42, 244)
+                : (hover ? new Color(36, 48, 72, 232) : new Color(20, 30, 50, 214));
+        Color botBg = pressed ? new Color(10, 17, 30, 248)
+                : (hover ? new Color(24, 34, 54, 238) : new Color(14, 21, 36, 222));
+        g.setPaint(new GradientPaint(0, 1, topBg, 0, h - 1, botBg));
+        g.fillRoundRect(1, 1, w - 2, h - 2, arc, arc);
+
+        g.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), hover ? 230 : 165));
+        g.setStroke(new BasicStroke(hover ? 1.4f : 1.1f));
+        g.drawRoundRect(1, 1, w - 3, h - 3, arc, arc);
+
+        int dotX = 10;
+        int dotY = h / 2;
+        g.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 95));
+        g.fillOval(dotX - 4, dotY - 4, 8, 8);
+        g.setColor(accent);
+        g.fillOval(dotX - 3, dotY - 3, 6, 6);
+
+        g.setFont(btn.getFont());
+        g.setColor(UiTokens.TEXT_PRIMARY);
+        FontMetrics fm = g.getFontMetrics();
+        int textX = 18 + Math.max(0, (w - 22 - fm.stringWidth(btn.getText())) / 2);
+        int textY = (h - fm.getHeight()) / 2 + fm.getAscent();
+        g.drawString(btn.getText(), textX, textY);
+        g.dispose();
+    }
+
+    /** Compact frosted pill cycling Raid Difficulty (Thường / Ác Mộng / Tuyệt Diệt). */
+    public static final class DifficultyPill extends JButton {
+        private Color accent = UiTokens.ACCENT_SIGNAL;
+
+        public DifficultyPill() {
+            setFont(UiTokens.FONT_META);
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setOpaque(false);
+            setRolloverEnabled(true);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            FontMetrics fm = getFontMetrics(UiTokens.FONT_META);
+            int maxW = 54;
+            for (TitanDifficulty d : TitanDifficulty.values()) maxW = Math.max(maxW, fm.stringWidth(d.label));
+            Dimension pref = new Dimension(maxW + 26, UiTokens.CHIP_HEIGHT);
+            setPreferredSize(pref);
+            setMinimumSize(pref);
+            setMaximumSize(pref);
+            sync();
+        }
+
+        public void sync() {
+            TitanDifficulty d = getDifficulty();
+            setText(d.label);
+            this.accent = d.accentColor;
+            setToolTipText("Độ khó Raid Boss (" + d.label + "): HP ×"
+                    + d.hpMult + " · Tốc độ Boss ×" + d.atbSpeedMult + " · Điểm ×" + d.scoreMult);
+            repaint();
+        }
+
+        @Override protected void paintComponent(Graphics g) {
+            paintFrostedPill(this, g, accent);
+        }
+    }
+
+    /** Compact toggle pill between Single Boss Raid ("1 Boss") and 3-Boss Gauntlet ("3 Boss"). */
+    public static final class RushPill extends JButton {
+        private Color accent = UiTokens.STEEL_EDGE;
+
+        public RushPill() {
+            setFont(UiTokens.FONT_META);
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setOpaque(false);
+            setRolloverEnabled(true);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            FontMetrics fm = getFontMetrics(UiTokens.FONT_META);
+            int maxW = Math.max(fm.stringWidth("1 Boss"), fm.stringWidth("3 Boss"));
+            Dimension pref = new Dimension(maxW + 28, UiTokens.CHIP_HEIGHT);
+            setPreferredSize(pref);
+            setMinimumSize(pref);
+            setMaximumSize(pref);
+            sync();
+        }
+
+        public void sync() {
+            boolean rush = isBossRushEnabled();
+            setText(rush ? "3 Boss" : "1 Boss");
+            this.accent = rush ? new Color(0xA855F7) : UiTokens.STEEL_EDGE;
+            setToolTipText(rush
+                    ? "Chế độ Boss Rush Liên Hoàn (Godzilla → Ghidorah → Mothra) kèm Tiếp Tế & Xếp Hạng!"
+                    : "Đấu 1 Boss đơn lẻ (Click để bật Boss Rush 3 Boss liên hoàn)");
+            repaint();
+        }
+
+        @Override protected void paintComponent(Graphics g) {
+            paintFrostedPill(this, g, accent);
         }
     }
 }
