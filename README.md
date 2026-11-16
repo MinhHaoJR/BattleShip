@@ -29,6 +29,7 @@ Hoặc mở thư mục bằng IntelliJ / NetBeans / VS Code (tự nhận Maven),
 | `board.getCell(row, col)` | Vẽ ô. **Bàn của máy: vẽ `SHIP` như `EMPTY`** để không lộ tàu |
 | `new Game(playerBoard)` | Bắt đầu ván (ném lỗi nếu chưa đủ tàu) |
 | `game.playerFire(row, col)` | Người bấm ô bên bàn máy. `ALREADY_SHOT` thì vẫn giữ lượt |
+| `game.useCombo(cells)` | Vũ khí bắn nhiều ô. Bỏ qua ô đã bắn, trả kết quả mạnh nhất (SUNK > HIT > MISS) |
 | `game.computerTurn()` | Gọi ngay sau lượt người (có thể dùng `javax.swing.Timer` cho chậm lại); trả về `Shot` để vẽ |
 | `game.isPlayerTurn()`, `game.isOver()`, `game.playerWon()` | Khóa bàn khi chưa tới lượt, hiện màn thắng/thua |
 

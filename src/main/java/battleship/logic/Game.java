@@ -3,6 +3,8 @@ package battleship.logic;
 import battleship.model.Board;
 import battleship.model.ShotResult;
 
+import java.util.List;
+
 /**
  * Một ván Người vs Máy. UI chỉ nói chuyện với lớp này và 2 Board.
  * Luật lượt: người bắn trước, sau đó luân phiên. Bắn lại ô cũ (ALREADY_SHOT) không mất lượt.
@@ -29,10 +31,22 @@ public class Game {
 
     /** Người chơi bắn vào bàn máy. */
     public ShotResult playerFire(int row, int col) {
+        return useCombo(List.of(new int[]{row, col}));
+    }
+
+    /**
+     * Người chơi bắn nhiều ô trong một lượt (vũ khí combo). Ô đã bắn rồi được bỏ qua.
+     * Trả kết quả mạnh nhất (SUNK > HIT > MISS); ALREADY_SHOT nếu mọi ô đều đã bắn, khi đó không mất lượt.
+     */
+    public ShotResult useCombo(List<int[]> cells) {
         if (isOver() || !playerTurn) throw new IllegalStateException("Chưa tới lượt người chơi");
-        ShotResult result = computerBoard.fire(row, col);
-        if (result != ShotResult.ALREADY_SHOT) playerTurn = false;
-        return result;
+        ShotResult best = ShotResult.ALREADY_SHOT;
+        for (int[] cell : cells) {
+            ShotResult r = computerBoard.fire(cell[0], cell[1]);
+            if (r != ShotResult.ALREADY_SHOT && (best == ShotResult.ALREADY_SHOT || r.compareTo(best) > 0)) best = r;
+        }
+        if (best != ShotResult.ALREADY_SHOT) playerTurn = false;
+        return best;
     }
 
     /** Máy bắn một phát vào bàn người chơi. */
