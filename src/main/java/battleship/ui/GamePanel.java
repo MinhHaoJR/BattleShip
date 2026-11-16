@@ -3548,8 +3548,7 @@ public class GamePanel extends JPanel {
         mana -= totalCost;
         refreshLoadout();
         try {
-            // TODO (logic-contract): nối vào Game.useCombo(...) khi module logic sẵn sàng.
-            ShotResult result = invokeComboStrike(row, col);
+            ShotResult result = game.useCombo(targetCells(row, col));
             if (result == null || result == ShotResult.ALREADY_SHOT) {
                 mana = previousMana;
                 refreshLoadout();
@@ -3572,17 +3571,12 @@ public class GamePanel extends JPanel {
                 showMessage("Bạn bắn " + coordinate(row, col) + ": " + resultText(result) + ".", UiTokens.TEXT_PRIMARY);
                 afterPlayerShot();
             });
-        } catch (UnsupportedOperationException exception) {
+        } catch (IllegalStateException exception) {
             mana = previousMana;
             refreshLoadout();
-            showMessage("Combo chưa sẵn sàng (TODO bên module logic); Hải Năng đã được hoàn lại.", UiTokens.STATUS_WARNING);
+            showMessage("Chưa tới lượt bắn; Hải Năng đã được hoàn lại.", UiTokens.STATUS_WARNING);
             turnLocked = false;
         }
-    }
-
-    private ShotResult invokeComboStrike(int row, int col) {
-        // Logic has not published Game.useCombo(...) yet; keep this adapter as the only integration point.
-        throw new UnsupportedOperationException("TODO (logic-contract): Game.useCombo");
     }
 
     private void afterPlayerShot() {
