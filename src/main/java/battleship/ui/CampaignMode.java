@@ -71,50 +71,51 @@ public final class CampaignMode {
     }
 
     public enum CampaignChapter {
+        // Thứ tự theo cốt truyện "Biển Hạch Tâm"; giữ tên hằng cũ vì file khác gọi theo tên.
         CH1_NAVAL(
                 0,
-                "C1 Hải Vực",
-                "Chương I · Hải Vực Đại Dương",
+                "C1 Hải Chiến",
+                "Chương I · Chiến Tranh Biển Aether",
                 OceanMapBackdrop.MapTheme.NAVAL_CITADEL,
                 1, 20,
                 new Color(0x38BDF8),
-                "Dòng Hải Lưu & Phao Sonar — Khởi đầu chiến dịch vượt biển lớn."
-        ),
-        CH2_FANTASY(
-                1,
-                "C2 Thần Giới",
-                "Chương II · Thần Giới Fantasy",
-                OceanMapBackdrop.MapTheme.FANTASY_REALM,
-                21, 40,
-                new Color(0xF472B6),
-                "2 Vòng Kết Giới (-35% CD & +Khiên/s) giữa không trung ma pháp."
+                "Dòng Hải Lưu & Phao Sonar — Liên Minh Tân Hải đối đầu hạm đội Vel'Kar."
         ),
         CH3_APOCALYPSE(
-                2,
-                "C3 Tận Thế",
-                "Chương III · Tận Thế Biển Lửa",
+                1,
+                "C2 Tận Thế",
+                "Chương II · Mặt Trời Đen",
                 OceanMapBackdrop.MapTheme.APOCALYPSE,
-                41, 60,
+                21, 40,
                 new Color(0xF97316),
-                "Khe Dung Nham (+8% ST Lửa & Đốt AoE) trên vùng biển núi lửa."
+                "Khe Dung Nham (+8% ST Lửa & Đốt AoE) — biển sôi sau bom hạch, Godzilla thức tỉnh."
         ),
         CH4_GALAXY(
-                3,
-                "C4 Vũ Trụ",
-                "Chương IV · Galaxy Vũ Trụ",
+                2,
+                "C3 Ngân Hà",
+                "Chương III · Thiên Thạch Tinh Thể",
                 OceanMapBackdrop.MapTheme.GALAXY_COSMOS,
-                61, 80,
+                41, 60,
                 new Color(0xA855F7),
-                "Trọng Lực Thấp (Lướt 2 ô) & Đá Pha Lê bùng nổ Hải Năng."
+                "Trọng Lực Thấp (Lướt 2 ô) & Đá Pha Lê — King Ghidorah rơi xuống, SpaceGodzilla ra đời."
         ),
         CH5_ATLANTIS(
-                4,
-                "C5 Atlantis",
-                "Chương V · Atlantis Vực Sâu",
+                3,
+                "C4 Atlantis",
+                "Chương IV · Nghĩa Địa Tàu Chìm",
                 OceanMapBackdrop.MapTheme.ABYSSAL_ATLANTIS,
-                81, 100,
+                61, 80,
                 new Color(0x2DD4BF),
-                "Trụ Cổ Ngữ (+35% Khoan & Giảm 35% ST Boss) — Đỉnh cao Màn 100!"
+                "Trụ Cổ Ngữ (+35% Khoan & Giảm 35% ST Boss) — hạm đội xác sống và bầy Destoroyah."
+        ),
+        CH2_FANTASY(
+                4,
+                "C5 Kết Giới",
+                "Chương V · Kết Giới Mothra",
+                OceanMapBackdrop.MapTheme.FANTASY_REALM,
+                81, 100,
+                new Color(0xF472B6),
+                "2 Vòng Kết Giới (-35% CD & +Khiên/s) — Mothra che chở trận cuối, Màn 100!"
         );
 
         public final int index;
@@ -178,10 +179,11 @@ public final class CampaignMode {
     }
 
     private static final String[] THEATRE_NAMES = {
-            "Vịnh Xanh", "Eo Bão", "Mũi Đá Ngầm", "Quần Đảo Mù", "Pháo Đài Cửa Biển",
-            "Vùng Trời Hồng", "Thác Ánh Sao", "Hồ Phù Thủy", "Rừng San Hô Bay", "Thánh Điện Rồng",
-            "Vành Đai Tro", "Biển Miệng Núi", "Lò Nung Dung Nham", "Mũi Than Hồng", "Ngục Tro Bụi",
-            "Vành Đai Sao", "Hố Đen Tím", "Tinh Vân Xoáy", "Trạm Quỹ Đạo", "Siêu Tinh Cầu"
+            "Vịnh Xanh", "Eo Bão", "Mũi Đá Ngầm", "Pháo Đài Cửa Biển",
+            "Vành Đai Tro", "Biển Miệng Núi", "Lò Nung Dung Nham", "Rãnh Vực Sâu",
+            "Vành Đai Sao", "Tinh Vân Xoáy", "Hố Đen Tím", "Trạm Quỹ Đạo",
+            "Nghĩa Địa Tàu Chìm", "Đền Đinh Ba", "Vực San Hô", "Thành Đô Chìm",
+            "Vùng Trời Hồng", "Thác Ánh Sao", "Hồ Phù Thủy", "Thánh Điện Rồng"
     };
 
     private static final List<CampaignStage> STAGES = buildAllStages();
@@ -345,7 +347,6 @@ public final class CampaignMode {
     private static List<CampaignStage> buildAllStages() {
         List<CampaignStage> list = new ArrayList<>(TOTAL_STAGES);
         CampaignChapter[] chapters = CampaignChapter.values();
-        TitanMode.TitanBoss[] bosses = TitanMode.TitanBoss.values();
         OceanMapBackdrop.Season[] seasons = {
                 OceanMapBackdrop.Season.SPRING,
                 OceanMapBackdrop.Season.SUMMER,
@@ -358,7 +359,9 @@ public final class CampaignMode {
             int idxInChap = (num - 1) % STAGES_PER_CHAPTER; // 0..19
             int oneBasedInChap = idxInChap + 1;             // 1..20
             CampaignChapter chap = chapters[chapIdx];
-            StageRuleType rule = resolveRuleForPos(oneBasedInChap);
+            // Truyện: chương I chỉ có hải chiến (không Titan); màn 70 là trận AURORA-07 của hạm đội xác sống.
+            StageRuleType rule = (chapIdx == 0 && oneBasedInChap % 5 == 0) ? StageRuleType.SKIRMISH
+                    : (num == 70 ? StageRuleType.ZOMBIE_ASSAULT : resolveRuleForPos(oneBasedInChap));
 
             OceanMapBackdrop.Season season = seasons[(chapIdx + idxInChap / 5) % seasons.length];
             OceanMapBackdrop.WeatherMode weather = (rule == StageRuleType.SONAR_FOG
@@ -420,8 +423,7 @@ public final class CampaignMode {
                     starCond = "★ Hạ hết hạm Zombie  ·  ★★ Còn ≥40% tàu  ·  ★★★ ≤ " + parShots + " phát & ≥60% tàu";
                 }
                 case TITAN_MILESTONE -> {
-                    int bossSlot = (num / 5) - 1;
-                    boss = (num == 100) ? TitanMode.TitanBoss.GHIDORAH : bosses[(bossSlot + chapIdx) % bosses.length];
+                    boss = standInBoss(chapIdx, oneBasedInChap);
                     bossDiff = num >= 80
                             ? TitanMode.TitanDifficulty.CATACLYSM
                             : (num >= 45 ? TitanMode.TitanDifficulty.NIGHTMARE : TitanMode.TitanDifficulty.NORMAL);
@@ -430,10 +432,10 @@ public final class CampaignMode {
                         timeLimitSec = Math.max(95, 135 - chapIdx * 6);
                     }
                     parShots = 24;
-                    String bossShort = boss.shortLabel.replaceFirst("^Boss:\\s*", "").toUpperCase();
+                    String bossShort = storyBossName(num).toUpperCase();
                     String climaxTag = (num == 100) ? "ĐẠI CHIẾN TỐI THƯỢNG" : ("Trùm Mốc " + num);
                     title = "Màn " + num + " · BOSS " + bossShort + " (" + climaxTag + ")";
-                    ruleSummary = "Đối đầu " + boss.displayName + " (" + bossHp + " HP · " + bossDiff.label
+                    ruleSummary = "Đối đầu " + storyBossName(num) + " (" + bossHp + " HP · " + bossDiff.label
                             + ") trên " + chap.theme.displayName
                             + (timeLimitSec > 0 ? " trong giới hạn " + timeLimitSec + "s." : "!");
                     starCond = "★ Hạ Boss Titan  ·  ★★ Ngắt chiêu/rụng chi + ≥40% tàu  ·  ★★★ ≥65% tàu & hạng A/S";
@@ -455,6 +457,29 @@ public final class CampaignMode {
             ));
         }
         return Collections.unmodifiableList(list);
+    }
+
+    /** Boss Titan đánh ở các màn mốc của chương (chỉ số chương theo thứ tự truyện). */
+    private static TitanMode.TitanBoss standInBoss(int chapIdx, int posInChapter) {
+        return switch (chapIdx) {
+            case 2 -> posInChapter < 20 ? TitanMode.TitanBoss.GHIDORAH : TitanMode.TitanBoss.SPACEGODZILLA;
+            case 3 -> TitanMode.TitanBoss.DESTOROYAH;
+            case 4 -> TitanMode.TitanBoss.ULTIMA;
+            default -> TitanMode.TitanBoss.GODZILLA;
+        };
+    }
+
+    /** Tên quái vật/đối thủ trong truyện ở các màn mốc (5, 10, 15, 20 của mỗi chương). */
+    public static String storyBossName(int stageNumber) {
+        int chapIdx = (stageNumber - 1) / STAGES_PER_CHAPTER;
+        int pos = (stageNumber - 1) % STAGES_PER_CHAPTER + 1;
+        return switch (chapIdx) {
+            case 0 -> "Soái Hạm Raskov";
+            case 1 -> "Godzilla";
+            case 2 -> pos < 20 ? "King Ghidorah" : "SpaceGodzilla";
+            case 3 -> pos == 10 ? "AURORA-07" : "Destoroyah";
+            default -> "Godzilla Ultima";
+        };
     }
 
     private static StageRuleType resolveRuleForPos(int posInChapter) {
@@ -490,6 +515,7 @@ public final class CampaignMode {
             if (chapIdx == 0) return List.of(ShipType.BATTLESHIP, ShipType.CRUISER, ShipType.DESTROYER);
             return List.of(ShipType.CARRIER, ShipType.BATTLESHIP, ShipType.CRUISER, ShipType.DESTROYER);
         }
+        if (chapIdx == 0 && posInChapter % 5 == 0) return List.of(ShipType.values()); // màn mốc chương I: đủ hạm đội Vel'Kar
         // SKIRMISH scales smoothly from quick 3-ship starter (Stage 1) up to full 5-ship fleet
         if (chapIdx == 0 && posInChapter == 1) {
             return List.of(ShipType.CRUISER, ShipType.SUBMARINE, ShipType.DESTROYER);

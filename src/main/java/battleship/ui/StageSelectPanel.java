@@ -8,7 +8,6 @@ import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
-import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
@@ -102,9 +101,8 @@ public final class StageSelectPanel extends JPanel {
     private final JLabel chapterBannerSub = new JLabel();
     private final JLabel filterCountBadge = new JLabel();
 
-    private final JLayeredPane layeredHost;
     private final JPanel mainContent = new JPanel(new BorderLayout(0, 10));
-    private final StoryComicOverlay storyOverlay = new StoryComicOverlay();
+    private final StoryComicOverlay storyOverlay = new StoryComicOverlay(this);
 
     // Right Briefing Card widgets
     private final JLabel briefingStageBadge = new JLabel();
@@ -151,18 +149,7 @@ public final class StageSelectPanel extends JPanel {
         centerSplit.add(buildBriefingCard(), BorderLayout.EAST);
         mainContent.add(centerSplit, BorderLayout.CENTER);
 
-        layeredHost = new JLayeredPane() {
-            @Override public void doLayout() {
-                int w = getWidth();
-                int h = getHeight();
-                mainContent.setBounds(0, 0, w, h);
-                storyOverlay.setBounds(0, 0, w, h);
-            }
-        };
-        layeredHost.setOpaque(false);
-        layeredHost.add(mainContent, JLayeredPane.DEFAULT_LAYER);
-        layeredHost.add(storyOverlay, JLayeredPane.MODAL_LAYER);
-        add(layeredHost, BorderLayout.CENTER);
+        add(mainContent, BorderLayout.CENTER);
 
         animTimer = new Timer(60, e -> repaint());
 

@@ -138,7 +138,9 @@ public final class TitanBattleController {
         FISSURE_ERUPTED,
         GRAVITY_SHATTER,
         DIRECTIVE_STARTED,
-        DIRECTIVE_COMPLETED
+        DIRECTIVE_COMPLETED,
+        ULTIMA_EVOLVED,
+        ULTIMA_RAGE
     }
 
     public record ArenaProp(
@@ -251,6 +253,10 @@ public final class TitanBattleController {
     private TitanMode.TitanSkill lastPickedSkill;
     private int bossCastSeq;
     private boolean skillBagEnraged;
+    /** Giai đoạn hiện tại của Godzilla Ultima (1–4); boss khác luôn là 1. */
+    private int ultimaStage = 1;
+    /** ★ của form Ultima hiện tại đã mở (form mất 1/3 phần máu của nó). */
+    private boolean ultimaStarOpen;
     private boolean phase2DebutPending;
     private long hazardTickAccumMs;
     private long moveCooldownMs;
@@ -710,6 +716,9 @@ public final class TitanBattleController {
         lastPickedSkill = null;
         bossCastSeq = 0;
         skillBagEnraged = false;
+        ultimaStage = 1;
+        ultimaStarOpen = false;
+        TitanMode.setUltimaStage(1);
         phase2DebutPending = false;
         activeDirective = null;
         directivesIssuedCount = 0;
@@ -1503,9 +1512,7 @@ public final class TitanBattleController {
         }
 
         boolean wasEnraged = enraged;
-        if (!enraged && bossHp > 0 && bossHp <= (bossMaxHp / 2)) {
-            activatePhase2Enrage();
-        }
+        checkPhaseThresholds();
 
         lastStrikeInfo = new RaidStrikeInfo(
                 finalDamage, bestPart, brokenNow, staggerTriggered,
@@ -1597,9 +1604,7 @@ public final class TitanBattleController {
         totalDamageDealt += dmg;
         bossHp = Math.max(0, bossHp - hpDmg);
         boolean wasEnraged = enraged;
-        if (!enraged && bossHp > 0 && bossHp <= (bossMaxHp / 2)) {
-            activatePhase2Enrage();
-        }
+        checkPhaseThresholds();
         lastStrikeInfo = new RaidStrikeInfo(
                 dmg, brokenNow != null ? brokenNow : TitanMode.TitanPart.CORE_FIN,
                 brokenNow, true, submergedRevealed, false, staggerThreshold);
@@ -1621,6 +1626,45 @@ public final class TitanBattleController {
         return Math.max(20, (int) Math.round(
                 TitanMode.staggerThresholdFor(boss, p2) * difficulty.staggerThresholdMult * progressive));
     }
+
+    /** Cuồng bạo ở 50% máu; Godzilla Ultima còn tiến hóa thêm ở 75% và 25%. */
+    private void checkPhaseThresholds() {
+        if (!enraged && bossHp > 0 && bossHp <= (bossMaxHp / 2)) {
+            activatePhase2Enrage();
+        }
+        if (boss != TitanMode.TitanBoss.ULTIMA || bossHp <= 0) return;
+        int stage = TitanMode.ultimaStageFor(bossHp, bossMaxHp);
+        if (stage > ultimaStage) evolveUltima(stage);
+        if (!ultimaStarOpen && TitanMode.ultimaStarOpenFor(bossHp, bossMaxHp)) {
+            ultimaStarOpen = true;
+            phase2DebutPending = true;      // tung ngay 2 chiêu ★ của form như Godzilla vào pha cuồng bạo
+            skillBag.clear();
+            pendingArenaEvents.add(new ArenaFeedbackEvent(ArenaEventKind.ULTIMA_RAGE, 4, 4,
+                    "★ CUỒNG NỘ · " + TitanMode.ultimaStageName(ultimaStage).toUpperCase() + " MỞ 2 CHIÊU ★!",
+                    0, 0, 0, 0, null, null));
+        }
+    }
+
+    private void evolveUltima(int stage) {
+        ultimaStage = stage;
+        ultimaStarOpen = false;
+        TitanMode.setUltimaStage(stage);
+        skillBag.clear();
+        // Đổi form thì huỷ chiêu đang vận của form cũ (giống bị ngắt chiêu)
+        pendingSkill = null;
+        telegraphCells = List.of();
+        castElapsedMs = 0L;
+        castTotalMs = 0L;
+        recoveryRemainingMs = Math.max(recoveryRemainingMs, 1650L);
+        pendingArenaEvents.add(new ArenaFeedbackEvent(ArenaEventKind.ULTIMA_EVOLVED, 4, 4,
+                "TIẾN HÓA · GODZILLA ULTIMA " + TitanMode.ultimaStageName(stage).toUpperCase() + "!",
+                0, 0, 0, 0, null, null));
+    }
+
+    public int getUltimaStage() { return ultimaStage; }
+
+    /** Chiêu ★ đã dùng được chưa: Ultima theo từng form, boss khác theo mốc cuồng bạo 50%. */
+    public boolean isStarSkillsOpen() { return boss == TitanMode.TitanBoss.ULTIMA ? ultimaStarOpen : enraged; }
 
     private void activatePhase2Enrage() {
         enraged = true;
@@ -1863,7 +1907,7 @@ public final class TitanBattleController {
         bossCastSeq++;
         boolean headBroken = isPartBroken(TitanMode.TitanPart.HEAD);
 
-        if (enraged && !dpsCheckDone && bossHp > 0 && bossHp <= (int) Math.round(bossMaxHp * 0.34)) {
+        if (isStarSkillsOpen() && !dpsCheckDone && bossHp > 0 && bossHp <= (int) Math.round(bossMaxHp * 0.34)) {
             dpsCheckActive = true;
             pendingSkill = TitanMode.cataclysmSkillFor(boss);
             int[] target = pickPlayerTargetNearFleet(pendingSkill);
@@ -2199,9 +2243,7 @@ public final class TitanBattleController {
                 triggerStaggerInterrupt();
             }
         }
-        if (!enraged && bossHp > 0 && bossHp <= (bossMaxHp / 2)) {
-            activatePhase2Enrage();
-        }
+        checkPhaseThresholds();
         return true;
     }
 
@@ -2224,18 +2266,20 @@ public final class TitanBattleController {
     }
 
     private TitanMode.TitanSkill pickBossSkill() {
-        if (skillBag.isEmpty() || skillBagEnraged != enraged) {
+        boolean starOpen = isStarSkillsOpen();
+        if (skillBag.isEmpty() || skillBagEnraged != starOpen) {
             skillBag.clear();
-            skillBagEnraged = enraged;
+            skillBagEnraged = starOpen;
             List<TitanMode.TitanSkill> p1 = new ArrayList<>();
             List<TitanMode.TitanSkill> p2 = new ArrayList<>();
             for (TitanMode.TitanSkill s : TitanMode.skillsFor(boss)) {
-                if (!enraged && s.phase2Only) continue;
+                if (s.ultimaStage != 0 && s.ultimaStage != ultimaStage) continue;
+                if (!starOpen && s.phase2Only) continue;
                 if (s.phase2Only) p2.add(s);
                 else p1.add(s);
             }
             List<TitanMode.TitanSkill> pool = new ArrayList<>();
-            if (enraged && phase2DebutPending && !p2.isEmpty()) {
+            if (starOpen && phase2DebutPending && !p2.isEmpty()) {
                 // Debut each newly unlocked Phase-2 skill once on transition, then mix all skills freely.
                 java.util.Collections.shuffle(p2, rng);
                 java.util.Collections.shuffle(p1, rng);

@@ -93,6 +93,46 @@ public final class SoundEngine {
         TITAN_MOTHRA_SILK("audio/sfx_titan_mothra_silk.wav", -3.8f, 2),
         TITAN_MOTHRA_PRISM("audio/sfx_titan_mothra_prism.wav", -3.8f, 2),
         TITAN_MOTHRA_NOVA("audio/sfx_titan_mothra_nova.wav", -3.0f, 2),
+        // 3 boss mới (âm thanh tổng hợp bằng tools/tao_am_thanh_boss.py)
+        TITAN_SPACEGODZILLA_ROAR("audio/sfx_titan_spacegodzilla_roar.wav", -1.8f, 2),
+        BOSS_POV_SPACEGODZILLA("audio/sfx_boss_pov_spacegodzilla.wav", -2.5f, 1),
+        TITAN_DESTOROYAH_ROAR("audio/sfx_titan_destoroyah_roar.wav", -1.8f, 2),
+        BOSS_POV_DESTOROYAH("audio/sfx_boss_pov_destoroyah.wav", -2.5f, 1),
+        TITAN_ULTIMA_ROAR("audio/sfx_titan_ultima_roar.wav", -1.8f, 2),
+        BOSS_POV_ULTIMA("audio/sfx_boss_pov_ultima.wav", -2.5f, 1),
+        TITAN_SG_CRYSTAL_MISSILE("audio/sfx_titan_sg_crystal_missile.wav", -3.2f, 2),
+        TITAN_SG_GRAVITY_TORNADO("audio/sfx_titan_sg_gravity_tornado.wav", -3.2f, 2),
+        TITAN_SG_CORONA_BEAM("audio/sfx_titan_sg_corona_beam.wav", -3.2f, 2),
+        TITAN_SG_CRYSTAL_FORTRESS("audio/sfx_titan_sg_crystal_fortress.wav", -3.2f, 2),
+        TITAN_SG_COSMIC_NOVA("audio/sfx_titan_sg_cosmic_nova.wav", -3.2f, 2),
+        TITAN_DS_MICRO_OXYGEN("audio/sfx_titan_ds_micro_oxygen.wav", -3.2f, 2),
+        TITAN_DS_HORN_SLASH("audio/sfx_titan_ds_horn_slash.wav", -3.2f, 2),
+        TITAN_DS_SWARM_SPLIT("audio/sfx_titan_ds_swarm_split.wav", -3.2f, 2),
+        TITAN_DS_OXYGEN_MIST("audio/sfx_titan_ds_oxygen_mist.wav", -3.2f, 2),
+        TITAN_DS_DESTRUCTION_OMEGA("audio/sfx_titan_ds_destruction_omega.wav", -3.2f, 2),
+        TITAN_UL1_GILL_SPRAY("audio/sfx_titan_ul1_gill_spray.wav", -3.2f, 2),
+        TITAN_UL1_FIN_DIVE("audio/sfx_titan_ul1_fin_dive.wav", -3.2f, 2),
+        TITAN_UL1_FLUKE_GEYSER("audio/sfx_titan_ul1_fluke_geyser.wav", -3.2f, 2),
+        TITAN_UL2_RAMPAGE_CHARGE("audio/sfx_titan_ul2_rampage_charge.wav", -3.2f, 2),
+        TITAN_UL2_LAVA_VENTS("audio/sfx_titan_ul2_lava_vents.wav", -3.2f, 2),
+        TITAN_UL2_SCALE_SHRAPNEL("audio/sfx_titan_ul2_scale_shrapnel.wav", -3.2f, 2),
+        TITAN_UL3_CLAW_REND("audio/sfx_titan_ul3_claw_rend.wav", -3.2f, 2),
+        TITAN_UL3_SONIC_ROAR("audio/sfx_titan_ul3_sonic_roar.wav", -3.2f, 2),
+        TITAN_UL3_SPINE_LANCE("audio/sfx_titan_ul3_spine_lance.wav", -3.2f, 2),
+        TITAN_UL4_CRIMSON_BREATH("audio/sfx_titan_ul4_crimson_breath.wav", -3.2f, 2),
+        TITAN_UL4_SKYFIRE("audio/sfx_titan_ul4_skyfire.wav", -3.2f, 2),
+        TITAN_UL4_FINAL_ROAR("audio/sfx_titan_ul4_final_roar.wav", -3.2f, 2),
+        TITAN_UL1_RIPTIDE_COIL("audio/sfx_titan_ul1_riptide_coil.wav", -3.2f, 2),
+        TITAN_UL1_SCALD_TORRENT("audio/sfx_titan_ul1_scald_torrent.wav", -3.2f, 2),
+        TITAN_UL2_MAGMA_QUAKE("audio/sfx_titan_ul2_magma_quake.wav", -3.2f, 2),
+        TITAN_UL2_MOLTEN_STAMPEDE("audio/sfx_titan_ul2_molten_stampede.wav", -3.2f, 2),
+        TITAN_UL3_GLACIER_BREATH("audio/sfx_titan_ul3_glacier_breath.wav", -3.2f, 2),
+        TITAN_UL3_FROST_CROWN("audio/sfx_titan_ul3_frost_crown.wav", -3.2f, 2),
+        TITAN_UL4_TAIL_CRUSH("audio/sfx_titan_ul4_tail_crush.wav", -3.2f, 2),
+        TITAN_UL4_BLOOD_SPIRAL("audio/sfx_titan_ul4_blood_spiral.wav", -3.2f, 2),
+        TITAN_SKILL_POV_SPACEGODZILLA("audio/sfx_titan_skill_pov_spacegodzilla.wav", -1.4f, 1),
+        TITAN_SKILL_POV_DESTOROYAH("audio/sfx_titan_skill_pov_destoroyah.wav", -1.4f, 1),
+        TITAN_SKILL_POV_ULTIMA("audio/sfx_titan_skill_pov_ultima.wav", -1.4f, 1),
         TITAN_BOSS_INTRO("audio/sfx_titan_boss_intro.wav", -2.5f, 1),
         BOSS_POV_GODZILLA("audio/sfx_boss_pov_godzilla.wav", -2.5f, 1),
         BOSS_POV_GHIDORAH("audio/sfx_boss_pov_ghidorah.wav", -2.5f, 1),
@@ -443,13 +483,14 @@ public final class SoundEngine {
         }
     }
 
+    /** Tiếng gầm theo quy tắc tên TITAN_&lt;BOSS&gt;_ROAR (đủ cho cả 6 boss). */
+    private static Sfx roarFor(TitanMode.TitanBoss boss) {
+        return Sfx.valueOf("TITAN_" + boss.name() + "_ROAR");
+    }
+
     public static void playTitanRoar(TitanMode.TitanBoss boss) {
         if (boss == null) return;
-        Sfx roar = switch (boss) {
-            case GHIDORAH -> Sfx.TITAN_GHIDORAH_ROAR;
-            case MOTHRA -> Sfx.TITAN_MOTHRA_ROAR;
-            case GODZILLA -> Sfx.TITAN_GODZILLA_ROAR;
-        };
+        Sfx roar = roarFor(boss);
         duckTemporarily(-3.8f, 950L);
         playSfx(roar);
     }
@@ -457,11 +498,7 @@ public final class SoundEngine {
     public static void playTitanBossIntro(TitanMode.TitanBoss boss) {
         if (!sfxEnabled || audioDeviceFailed) return;
         TitanMode.TitanBoss chosen = boss == null ? TitanMode.TitanBoss.GODZILLA : boss;
-        Sfx povTrack = switch (chosen) {
-            case GHIDORAH -> Sfx.BOSS_POV_GHIDORAH;
-            case MOTHRA -> Sfx.BOSS_POV_MOTHRA;
-            case GODZILLA -> Sfx.BOSS_POV_GODZILLA;
-        };
+        Sfx povTrack = Sfx.valueOf("BOSS_POV_" + chosen.name());
         AUDIO_EXEC.execute(() -> {
             if (unduckFuture != null) unduckFuture.cancel(false);
             duckDb = -9.0f;
@@ -520,6 +557,7 @@ public final class SoundEngine {
             case MT_SILK_WEB -> Sfx.TITAN_MOTHRA_SILK;
             case MT_PRISM_RAIN -> Sfx.TITAN_MOTHRA_PRISM;
             case MT_SOLAR_SUPERNOVA -> Sfx.TITAN_MOTHRA_NOVA;
+            default -> Sfx.valueOf("TITAN_" + skill.name());
         };
         duckTemporarily(-4.0f, 950L);
         AUDIO_EXEC.execute(() -> triggerSfxInternal(skillSfx));
@@ -528,11 +566,7 @@ public final class SoundEngine {
             long now = System.currentTimeMillis();
             if (now - lastSkillRoarMs >= 4500L) {
                 lastSkillRoarMs = now;
-                Sfx roar = switch (roarBoss) {
-                    case GHIDORAH -> Sfx.TITAN_GHIDORAH_ROAR;
-                    case MOTHRA -> Sfx.TITAN_MOTHRA_ROAR;
-                    case GODZILLA -> Sfx.TITAN_GODZILLA_ROAR;
-                };
+                Sfx roar = roarFor(roarBoss);
                 AUDIO_EXEC.schedule(() -> triggerSfxInternal(roar, -3.5f), 260, TimeUnit.MILLISECONDS);
             }
         }
@@ -546,16 +580,13 @@ public final class SoundEngine {
             case GHIDORAH -> Sfx.TITAN_SKILL_POV_GHIDORAH;
             case MOTHRA -> Sfx.TITAN_SKILL_POV_MOTHRA;
             case GODZILLA -> Sfx.TITAN_SKILL_POV_GODZILLA;
+            default -> Sfx.valueOf("TITAN_SKILL_POV_" + safeBoss.name());
         };
         // Duck BGM deeply so the brief dead-silence vacuum pause hits with theatrical contrast
         duckTemporarily(-7.8f, 2850L);
         AUDIO_EXEC.execute(() -> triggerSfxInternal(povSfx));
         if (skill != null && skill.phase2Only) {
-            Sfx roar = switch (safeBoss) {
-                case GHIDORAH -> Sfx.TITAN_GHIDORAH_ROAR;
-                case MOTHRA -> Sfx.TITAN_MOTHRA_ROAR;
-                case GODZILLA -> Sfx.TITAN_GODZILLA_ROAR;
-            };
+            Sfx roar = roarFor(safeBoss);
             AUDIO_EXEC.schedule(() -> triggerSfxInternal(roar, -5.0f), 1180, TimeUnit.MILLISECONDS);
         }
     }
@@ -694,6 +725,7 @@ public final class SoundEngine {
                 case GHIDORAH -> BgmTrack.TITAN_GHIDORAH;
                 case MOTHRA -> BgmTrack.TITAN_MOTHRA;
                 case GODZILLA -> BgmTrack.TITAN;
+                default -> BgmTrack.TITAN;
             };
         }
         if (ZombieMode.isZombieMode()) return BgmTrack.ZOMBIE;
@@ -823,7 +855,8 @@ public final class SoundEngine {
         return switch (sfx) {
             case WORLD_BEACON -> 3400L;
             case WORLD_VOLCANO, WORLD_PORTAL, WORLD_METEOR, DRAGON_CRY, WIND_GUST, THUNDER_CRACK, THUNDER_RUMBLE -> 2400L;
-            case TITAN_SKILL_POV_GODZILLA, TITAN_SKILL_POV_GHIDORAH, TITAN_SKILL_POV_MOTHRA, SUPERSHIP_HYPERCANNON -> 160L;
+            case TITAN_SKILL_POV_GODZILLA, TITAN_SKILL_POV_GHIDORAH, TITAN_SKILL_POV_MOTHRA, TITAN_SKILL_POV_SPACEGODZILLA,
+                 TITAN_SKILL_POV_DESTOROYAH, TITAN_SKILL_POV_ULTIMA, SUPERSHIP_HYPERCANNON -> 160L;
             case TITAN_GODZILLA_ROAR, TITAN_GHIDORAH_ROAR, TITAN_MOTHRA_ROAR, ZOMBIE_ROAR -> 1400L;
             case ZOMBIE_SPIT, ZOMBIE_SPORE, ZOMBIE_CURSE, ZOMBIE_BLOOD_CANNON, ZOMBIE_BAT_SWARM -> 110L;
             case ZOMBIE_HIT -> 95L;

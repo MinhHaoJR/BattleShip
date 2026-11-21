@@ -294,7 +294,7 @@ public final class HomeScreenPanel extends JPanel {
             setupButton.setToolTipText(null);
         } else if (selectedChoice == LobbyChoice.TITAN && TitanMode.isBossRushEnabled()) {
             quickLaunchButton.setText("Vào Boss Rush · " + TitanMode.getDifficulty().label);
-            quickLaunchButton.setToolTipText("Tự xếp 5 tàu và khai chiến ngay chuỗi 3 Boss Titan + Chọn Di Vật!");
+            quickLaunchButton.setToolTipText("Tự xếp 5 tàu và khai chiến ngay chuỗi 6 Boss Titan + Chọn Di Vật!");
             setupButton.setText("Triển Khai Hạm Đội (Tự Xếp Tàu)");
             setupButton.setToolTipText(null);
         } else if (selectedChoice == LobbyChoice.TITAN) {

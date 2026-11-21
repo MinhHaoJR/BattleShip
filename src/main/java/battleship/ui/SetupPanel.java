@@ -509,7 +509,7 @@ public class SetupPanel extends JPanel {
             boolean rush = TitanMode.isBossRushEnabled();
             startButton.setText(rush ? ("Boss Rush · " + d.label) : ("Đấu " + b.shortLabel));
             startButton.setToolTipText(rush
-                    ? "Vào Boss Rush 3 Boss liên hoàn (" + d.label + "); tự xếp 5 tàu nếu chưa đặt hết"
+                    ? "Vào Boss Rush 6 Boss liên hoàn (" + d.label + "); tự xếp 5 tàu nếu chưa đặt hết"
                     : "Vào trận Boss Titan (" + b.displayName + " · " + d.label + ")");
             startButton.setEnabled(true);
         } else {

@@ -137,7 +137,7 @@ public class GamePanel extends JPanel {
     private long coopLastBossSyncMs;
     private TacticalButton coopSynergyButton;
     private final RaidModalPanel raidModalPanel = new RaidModalPanel();
-    private final StoryComicOverlay storyOverlay = new StoryComicOverlay();
+    private final StoryComicOverlay storyOverlay = new StoryComicOverlay(this);
     private TacticalButton storyBattleButton;
     private TacticalButton raidGuideButton;
     private TacticalButton sandboxRevealBtn;
@@ -317,7 +317,6 @@ public class GamePanel extends JPanel {
                 boards.setBounds(0, 0, w, h);
                 fxOverlay.setBounds(0, 0, w, h);
                 raidModalPanel.setBounds(0, 0, w, h);
-                storyOverlay.setBounds(0, 0, w, h);
             }
             @Override protected void paintComponent(Graphics graphics) {
                 Graphics2D g = (Graphics2D) graphics.create();
@@ -330,8 +329,6 @@ public class GamePanel extends JPanel {
         boardStage.add(fxOverlay, JLayeredPane.PALETTE_LAYER);
         raidModalPanel.setVisible(false);
         boardStage.add(raidModalPanel, JLayeredPane.MODAL_LAYER);
-        storyOverlay.setVisible(false);
-        boardStage.add(storyOverlay, JLayeredPane.POPUP_LAYER);
         add(boardStage, BorderLayout.CENTER);
         add(createLoadoutBar(), BorderLayout.SOUTH);
         raidTimer = new Timer(35, e -> stepRaidTick());
@@ -819,10 +816,11 @@ public class GamePanel extends JPanel {
                             titan != null ? titan.getBoss() : TitanMode.getActiveBoss());
                     if (slot < current.size()) {
                         TitanMode.TitanSkill chosen = current.get(slot);
-                        if (!sandboxMode && chosen.phase2Only && titan != null && !titan.isEnraged()) {
+                        if (!sandboxMode && chosen.phase2Only && titan != null && !titan.isStarSkillsOpen()) {
                             SoundEngine.playUiClick();
                             showMessage("Kỹ năng Phase 2 Cuồng Bạo (" + chosen.skillName
-                                    + ") mở khóa khi Boss <= 50% HP (hoặc bật Sandbox để test ngay)!",
+                                    + (chosen.ultimaStage > 0 ? ") mở khóa khi form này mất 1/3 máu" : ") mở khóa khi Boss <= 50% HP")
+                                    + " (hoặc bật Sandbox để test ngay)!",
                                     UiTokens.STATUS_WARNING);
                             return;
                         }
@@ -2651,6 +2649,32 @@ public class GamePanel extends JPanel {
                 computerBoardPanel.setRevealedCells(revealedEnemyCells);
             }
             switch (ev.kind()) {
+                case ULTIMA_EVOLVED -> {
+                    int stage = titan.getUltimaStage();
+                    computerBoardPanel.triggerTitanEmergence(1350L);
+                    computerBoardPanel.triggerTitanCharge(1550L);
+                    computerBoardPanel.triggerShake(10);
+                    computerBoardPanel.addFloatingPopup(2, 4, "★ " + TitanMode.ultimaStageName(stage).toUpperCase() + " ★",
+                            new Color(0xF97316), true);
+                    showMessage(ev.label(), new Color(0xF97316));
+                    if (stage != 3) { // mốc 50% đã có cảnh cuồng bạo riêng
+                        raidPauseUntilMs = System.currentTimeMillis() + 1450L;
+                        SoundEngine.playSfx(SoundEngine.Sfx.TITAN_ENRAGE_TRANSFORM);
+                        SoundEngine.playTitanRoar(titan.getBoss());
+                        fxOverlay.launchTitanEnrageCutIn(computerBoardPanel, titan.getBoss());
+                    }
+                    boardChanged = true;
+                    hudDirty = true;      // hàng ô chiêu đổi sang 5 chiêu của form mới
+                }
+                case ULTIMA_RAGE -> {
+                    computerBoardPanel.triggerTitanCharge(1200L);
+                    computerBoardPanel.triggerShake(7);
+                    computerBoardPanel.addFloatingPopup(2, 4, "★ CUỒNG NỘ ★", new Color(0xEF4444), true);
+                    showMessage(ev.label(), new Color(0xEF4444));
+                    SoundEngine.playTitanRoar(titan.getBoss());
+                    boardChanged = true;
+                    hudDirty = true;      // mở khoá 2 ô chiêu ★
+                }
                 case REEF_BLOCKED -> {
                     playerBoardPanel.triggerShake(3);
                     playerBoardPanel.addFloatingPopup(ev.row(), ev.col(), ev.label(), new Color(0x94A3B8), false);
@@ -4078,7 +4102,7 @@ public class GamePanel extends JPanel {
         if (selectedTitanSkill.boss != activeBoss && !tSkills.isEmpty()) {
             selectedTitanSkill = tSkills.get(0);
         }
-        boolean bossEnraged = titan != null && titan.isEnraged();
+        boolean bossEnraged = titan != null && titan.isStarSkillsOpen();
         for (int index = 0; index < titanChips.size() && index < tSkills.size(); index++) {
             TitanMode.TitanSkill ts = tSkills.get(index);
             LoadoutChip chip = titanChips.get(index);
@@ -4086,7 +4110,7 @@ public class GamePanel extends JPanel {
             Color chipAccent = lockedP2 ? UiTokens.TEXT_MUTED : ts.accentColor;
             chip.updateDisplay(ts.chipLabel, chipAccent, SpriteAssets.getTitanSkillSprite(ts));
             chip.setToolTipText(lockedP2
-                    ? (ts.skillName + " [CHỜ PHASE 2 <= 50% HP] — " + ts.description)
+                    ? (ts.skillName + (ts.ultimaStage > 0 ? " [CHỜ FORM MẤT 1/3 MÁU] — " : " [CHỜ PHASE 2 <= 50% HP] — ") + ts.description)
                     : (ts.skillName + " — " + ts.description));
             chip.setSelected(ts == selectedTitanSkill);
         }
@@ -4917,7 +4941,7 @@ public class GamePanel extends JPanel {
                 subtitleLabel.setText("Boss Rush (" + s.difficulty().label + ") · Tiếp theo: " + nextRushBoss.displayName);
             } else if (s.won() && rushMode) {
                 titleLabel.setText("CHIẾN DỊCH 3 TITAN TOÀN THẮNG!");
-                subtitleLabel.setText("Hoàn tất toàn bộ 3 Boss (" + s.difficulty().label + ") · Tổng điểm: " + cumulativeScore);
+                subtitleLabel.setText("Hoàn tất toàn bộ 6 Boss (" + s.difficulty().label + ") · Tổng điểm: " + cumulativeScore);
             } else if (s.won()) {
                 titleLabel.setText((coopMode ? "CO-OP CHIẾN THẮNG · " : "CHIẾN THẮNG · ") + s.boss().shortLabel.toUpperCase());
                 subtitleLabel.setText((coopMode && coopSession != null

@@ -286,6 +286,7 @@ public class CombatFxOverlay extends JComponent {
 
     private final Object fxLock = new Object();
     private final List<ActiveStrike> strikes = new ArrayList<>();
+    private final KaijuSkillFx kaijuFx = new KaijuSkillFx();
     private final List<TrailParticle> particles = new ArrayList<>();
     private final List<ShockwaveRing> rings = new ArrayList<>();
     private final List<LightningBolt> bolts = new ArrayList<>();
@@ -577,18 +578,28 @@ public class CombatFxOverlay extends JComponent {
             runCallbackQuietly(onImpact);
             return;
         }
+        if (skill.spec != null) {
+            if (willPlayTitanSkillPov(skill)) {
+                launchKaijuSkillPov(fromTitanBoard, toPlayerBoard, skill, enraged, targetRow, targetCol, targetCells, lethalHit, onImpact);
+            } else {
+                launchKaijuSkill(fromTitanBoard, toPlayerBoard, skill, enraged, targetRow, targetCol, targetCells, onImpact);
+            }
+            return;
+        }
 
         CombatLoadout.WeaponOption w = switch (skill) {
             case GZ_TAIL_SLAM, MT_SILK_WEB -> CombatLoadout.WeaponOption.CANNON;
             case GZ_ATOMIC_BREATH, GZ_SPIRAL_RAY, MT_WING_GALE -> CombatLoadout.WeaponOption.TORPEDO;
             case GZ_THERMO_PULSE, GZ_MELTDOWN_RIFT, KG_OMEGA_VORTEX, KG_CATACLYSM_GRAVITY, MT_PRISM_RAIN, MT_SOLAR_SUPERNOVA -> CombatLoadout.WeaponOption.AIRSTRIKE;
             case KG_TRIPLE_GRAVITY, KG_HURRICANE_WING, KG_ALPHA_STORM, MT_GOD_RAY -> CombatLoadout.WeaponOption.MISSILE_CROSS;
+            default -> CombatLoadout.WeaponOption.AIRSTRIKE;
         };
         CombatLoadout.MagicOption m = switch (skill) {
             case GZ_TAIL_SLAM, GZ_ATOMIC_BREATH, MT_WING_GALE, MT_GOD_RAY -> CombatLoadout.MagicOption.ARCANE_SONAR;
             case MT_SILK_WEB -> CombatLoadout.MagicOption.FROST;
             case GZ_THERMO_PULSE, GZ_SPIRAL_RAY, GZ_MELTDOWN_RIFT, MT_SOLAR_SUPERNOVA -> CombatLoadout.MagicOption.FIRE;
             case KG_TRIPLE_GRAVITY, KG_HURRICANE_WING, KG_OMEGA_VORTEX, KG_ALPHA_STORM, KG_CATACLYSM_GRAVITY, MT_PRISM_RAIN -> CombatLoadout.MagicOption.LIGHTNING;
+            default -> CombatLoadout.MagicOption.FIRE;
         };
 
         int primaryPart = switch (skill) {
@@ -599,6 +610,7 @@ public class CombatFxOverlay extends JComponent {
             case MT_SILK_WEB, MT_SOLAR_SUPERNOVA -> 3;
             case KG_HURRICANE_WING -> 4;
             case KG_OMEGA_VORTEX, KG_CATACLYSM_GRAVITY -> 0;
+            default -> 0;
         };
         Point origin = fromTitanBoard.getTitanLaunchPointIn(skill.boss, primaryPart, this);
         List<Point> extraOrigins = new ArrayList<>();
@@ -654,6 +666,7 @@ public class CombatFxOverlay extends JComponent {
             case MT_SILK_WEB -> 920L;
             case MT_PRISM_RAIN -> 1160L;
             case MT_SOLAR_SUPERNOVA -> 1560L;
+            default -> 1400L;
         };
 
         Color fxAccent = (enraged && skill == TitanMode.TitanSkill.GZ_THERMO_PULSE)
@@ -705,6 +718,62 @@ public class CombatFxOverlay extends JComponent {
                     fxAccent, 920L, 14.0));
         }
 
+        timer.setDelay(ACTIVE_TICK_MS);
+        if (!timer.isRunning()) timer.start();
+        repaint();
+    }
+
+    /** Chiêu chủ lực của 3 boss mới: cảnh POV 3 màn ({@link KaijuPovFx}) rồi VFX của chiêu bay xuống bàn cờ. */
+    private void launchKaijuSkillPov(BoardPanel from, BoardPanel to, TitanMode.TitanSkill skill, boolean enraged,
+                                     int targetRow, int targetCol, List<int[]> targetCells, boolean lethalHit, Runnable onImpact) {
+        int part = switch (skill.spec.chargePart()) {
+            case HEAD -> 0;
+            case CORE_FIN -> 1;
+            case BODY_TAIL -> 2;
+        };
+        Point origin = from.getTitanLaunchPointIn(skill.boss, part, this);
+        Point center = to.getCellCenterIn(targetRow, targetCol, this);
+        List<Point> cells = new ArrayList<>();
+        if (targetCells != null) {
+            for (int[] c : targetCells) {
+                if (c != null && c.length >= 2) cells.add(to.getCellCenterIn(c[0], c[1], this));
+            }
+        }
+        from.triggerTitanCharge(1580L);
+        long povDurationMs = 2480L;
+        lastTitanSkillPovUntilMs = System.currentTimeMillis() + povDurationMs + KaijuSkillFx.flightMs(skill) + TITAN_SKILL_POV_COOLDOWN_MS;
+        launchTitanSkillPovInternal(origin, center, cells, List.of(), Math.max(24, to.getCellSize()), skill, enraged,
+                lethalHit, false, true, povDurationMs, onImpact);
+    }
+
+    /** Chiêu của 3 boss mới: VFX riêng trong {@link KaijuSkillFx}, onImpact bắn khi đòn trúng. */
+    private void launchKaijuSkill(BoardPanel from, BoardPanel to, TitanMode.TitanSkill skill, boolean enraged,
+                                  int targetRow, int targetCol, List<int[]> targetCells, Runnable onImpact) {
+        int part = switch (skill.spec.chargePart()) {
+            case HEAD -> 0;
+            case CORE_FIN -> 1;
+            case BODY_TAIL -> 2;
+        };
+        Point origin = from.getTitanLaunchPointIn(skill.boss, part, this);
+        Point center = to.getCellCenterIn(targetRow, targetCol, this);
+        List<Point> cells = new ArrayList<>();
+        if (targetCells != null) {
+            for (int[] c : targetCells) {
+                if (c != null && c.length >= 2) cells.add(to.getCellCenterIn(c[0], c[1], this));
+            }
+        }
+        int cellSize = Math.max(24, to.getCellSize());
+        long now = System.currentTimeMillis();
+        from.triggerTitanCharge(Math.round(KaijuSkillFx.flightMs(skill) * 0.45));
+        Color accent = enraged ? skill.boss.enrageColor : skill.accentColor;
+        synchronized (fxLock) {
+            kaijuFx.anims.add(new KaijuSkillFx.Anim(skill, enraged, origin, cells, center, cellSize, onImpact, now));
+            rings.add(new ShockwaveRing(origin.x, origin.y, cellSize * 2.2, accent, 460L));
+            blooms.add(new ImpactBloom(origin.x, origin.y, cellSize * 2.0, accent, 420L));
+            spawnBurstColor(origin.x, origin.y, 24, accent, true);
+            callouts.add(new FloatingCallout(origin.x, origin.y + cellSize * 0.85,
+                    skill.boss.shortLabel + ": " + skill.skillName, accent, 920L, 14.0));
+        }
         timer.setDelay(ACTIVE_TICK_MS);
         if (!timer.isRunning()) timer.start();
         repaint();
@@ -864,7 +933,7 @@ public class CombatFxOverlay extends JComponent {
             case GZ_ATOMIC_BREATH, GZ_SPIRAL_RAY, GZ_MELTDOWN_RIFT,
                  KG_TRIPLE_GRAVITY, KG_ALPHA_STORM, KG_CATACLYSM_GRAVITY,
                  MT_GOD_RAY, MT_PRISM_RAIN, MT_SOLAR_SUPERNOVA -> true;
-            default -> false;
+            default -> KaijuPovFx.isSignature(skill);
         };
     }
 
@@ -1283,6 +1352,14 @@ public class CombatFxOverlay extends JComponent {
                 }
             }
             titanPovCutscenes.clear();
+            for (KaijuSkillFx.Anim ka : kaijuFx.anims) {
+                if (!ka.impactFired && ka.onImpact != null) {
+                    ka.impactFired = true;
+                    if (pendingCallbacks == null) pendingCallbacks = new ArrayList<>(2);
+                    pendingCallbacks.add(ka.onImpact);
+                }
+            }
+            kaijuFx.anims.clear();
             for (MissileInterceptAnim mi : missileIntercepts) {
                 if (!mi.completedTriggered && mi.onCompleted != null) {
                     mi.completedTriggered = true;
@@ -1914,6 +1991,24 @@ public class CombatFxOverlay extends JComponent {
             }
             long now = System.currentTimeMillis();
 
+            for (int i = kaijuFx.anims.size() - 1; i >= 0; i--) {
+                KaijuSkillFx.Anim ka = kaijuFx.anims.get(i);
+                if (!ka.impactFired && ka.phase(now) >= 1.0) {
+                    ka.impactFired = true;
+                    for (Point c : ka.cells) {
+                        rings.add(new ShockwaveRing(c.x, c.y, ka.cell * 1.6, ka.main, 380L));
+                        blooms.add(new ImpactBloom(c.x, c.y, ka.cell * 1.3, ka.main, 360L));
+                        spawnBurstColor(c.x, c.y, 8, ka.main, true);
+                    }
+                    rings.add(new ShockwaveRing(ka.center.x, ka.center.y, ka.cell * 3.2, ka.hot, 520L));
+                    if (ka.onImpact != null) {
+                        if (callbacks == null) callbacks = new ArrayList<>(2);
+                        callbacks.add(ka.onImpact);
+                    }
+                }
+                if (ka.done(now)) kaijuFx.anims.remove(i);
+            }
+
             for (int i = strikes.size() - 1; i >= 0; i--) {
                 ActiveStrike s = strikes.get(i);
                 double t = (now - s.startMs) / (double) s.durationMs;
@@ -2156,6 +2251,7 @@ public class CombatFxOverlay extends JComponent {
                             case GODZILLA -> t < 0.55 ? new Color(0x38BDF8) : new Color(0xFB923C);
                             case MOTHRA -> t < 0.55 ? new Color(0x34D399) : new Color(0xFDE047);
                             case GHIDORAH -> new Color(0xFDE047);
+                            default -> t < 0.55 ? br.boss.accentColor : br.boss.enrageColor;
                         };
                         spawnBurstColor(sx, sy, 5, sparkCol, true);
                     }
@@ -2170,6 +2266,7 @@ public class CombatFxOverlay extends JComponent {
                         case GODZILLA -> new Color(0x22D3EE);
                         case MOTHRA -> new Color(0x34D399);
                         case GHIDORAH -> new Color(0xFACC15);
+                        default -> br.boss.accentColor;
                     };
                     rings.add(new ShockwaveRing(cx, cy, br.cellSize * 5.2, bCol, 640L));
                     rings.add(new ShockwaveRing(cx, cy, br.cellSize * 3.4, Color.WHITE, 440L));
@@ -2491,7 +2588,7 @@ public class CombatFxOverlay extends JComponent {
     private boolean isSceneIdle() {
         long now = System.currentTimeMillis();
         synchronized (fxLock) {
-            return strikes.isEmpty() && particles.isEmpty() && rings.isEmpty()
+            return strikes.isEmpty() && kaijuFx.anims.isEmpty() && particles.isEmpty() && rings.isEmpty()
                     && bolts.isEmpty() && blooms.isEmpty() && shieldFlares.isEmpty()
                     && shieldShatters.isEmpty()
                     && callouts.isEmpty() && fleetShields.isEmpty() && bossIntros.isEmpty()
@@ -3153,6 +3250,9 @@ public class CombatFxOverlay extends JComponent {
                     g.fillRect(cx - inner / 2, cy - inner / 2, inner, inner);
                 }
             }
+
+            // 3b. VFX chiêu của 3 boss mới
+            kaijuFx.paint(g, now);
 
             // 4. Active Strikes: Launch Astrolabe Rune + Ribbon + Weapon-specific Choreography
             for (ActiveStrike s : strikes) {
@@ -4254,6 +4354,9 @@ public class CombatFxOverlay extends JComponent {
                             case GODZILLA -> "BURNING GODZILLA · TIA XOẮN ĐỎ & VỰC DUNG NHAM ĐÃ SẴN SÀNG";
                             case GHIDORAH -> "SUPERCELL GHIDORAH · SIÊU BÃO SÉT & HỐ ĐEN TRỌNG LỰC ĐÃ MỞ";
                             case MOTHRA -> "SOLAR MOTHRA · MƯA PHẤN LĂNG KÍNH & SIÊU TÂN TINH Ω ĐÃ MỞ";
+                            case SPACEGODZILLA -> "CRYSTAL SPACEGODZILLA · PHÁO ĐÀI TINH THỂ & SIÊU TÂN TINH VŨ TRỤ Ω ĐÃ MỞ";
+                            case DESTOROYAH -> "PERFECT DESTOROYAH · SƯƠNG OXY ĐEN & PHÂN RÃ PHÂN TỬ Ω ĐÃ MỞ";
+                            case ULTIMA -> "GODZILLA ULTIMA · " + TitanMode.ultimaStageName(TitanMode.getUltimaStage()).toUpperCase() + " ĐÃ THỨC TỈNH";
                         }
                         : "BOSS CUỐI: " + anim.boss.displayName.toUpperCase() + " · ĐIỂM YẾU ×2 ST");
 
@@ -4307,6 +4410,9 @@ public class CombatFxOverlay extends JComponent {
                     case GODZILLA -> anim.enrageTransform ? new Color(84, 16, 10) : new Color(8, 34, 62);
                     case GHIDORAH -> anim.enrageTransform ? new Color(54, 14, 72) : new Color(45, 28, 6);
                     case MOTHRA -> anim.enrageTransform ? new Color(68, 42, 8) : new Color(8, 44, 38);
+                    case SPACEGODZILLA -> anim.enrageTransform ? new Color(10, 40, 74) : new Color(40, 14, 70);
+                    case DESTOROYAH -> anim.enrageTransform ? new Color(74, 50, 6) : new Color(60, 8, 10);
+                    case ULTIMA -> anim.enrageTransform ? new Color(48, 12, 72) : new Color(72, 30, 8);
                 };
                 String tagText = anim.enrageTransform
                         ? "PHASE 2 · CUỒNG BẠO THỨC TỈNH!"
@@ -4316,22 +4422,34 @@ public class CombatFxOverlay extends JComponent {
                             case GODZILLA -> "BURNING GODZILLA";
                             case GHIDORAH -> "ALPHA GHIDORAH";
                             case MOTHRA -> "SOLAR MOTHRA";
+                            case SPACEGODZILLA -> "CRYSTAL SPACEGODZILLA";
+                            case DESTOROYAH -> "PERFECT DESTOROYAH";
+                            case ULTIMA -> "ULTIMA · FORM III";
                         }
                         : switch (anim.boss) {
                             case GODZILLA -> "GODZILLA";
                             case GHIDORAH -> "KING GHIDORAH";
                             case MOTHRA -> "MOTHRA";
+                            case SPACEGODZILLA -> "SPACEGODZILLA";
+                            case DESTOROYAH -> "DESTOROYAH";
+                            case ULTIMA -> "GODZILLA ULTIMA";
                         };
                 String sub = anim.enrageTransform
                         ? switch (anim.boss) {
                             case GODZILLA -> "QUÁ TẢI HẠT NHÂN · TIA XOẮN ĐỎ & VỰC DUNG NHAM";
                             case GHIDORAH -> "TRIỆU HỒI SIÊU BÃO · HỐ ĐEN TRỌNG LỰC Ω";
                             case MOTHRA -> "NỮ HOÀNG BÙNG CHÁY · MƯA PHẤN & SIÊU TÂN TINH";
+                            case SPACEGODZILLA -> "CỘT VAI BÙNG SÁNG · PHÁO ĐÀI TINH THỂ & TÂN TINH VŨ TRỤ";
+                            case DESTOROYAH -> "LÕI NGỰC RỰC VÀNG · SƯƠNG OXY ĐEN & PHÂN RÃ Ω";
+                            case ULTIMA -> "TIẾN HÓA · VUỐT XÉ, GẦM BĂNG LAM & THƯƠNG GAI";
                         }
                         : switch (anim.boss) {
                             case GODZILLA -> "VUA QUÁI VẬT · HƠI THỞ NGUYÊN TỬ";
                             case GHIDORAH -> "HOÀNG ĐẾ BÃO TỐ · TAM ĐẦU LÔI ĐIỆN";
                             case MOTHRA -> "NỮ HOÀNG THIÊN NHIÊN · CUỒNG PHONG & THÁNH QUANG";
+                            case SPACEGODZILLA -> "ÁC LONG TINH THỂ · TIA CORONA & LỐC TRỌNG LỰC";
+                            case DESTOROYAH -> "QUỶ PHÂN RÃ OXY · TIA OXY VI THỂ & TÁCH BẦY";
+                            case ULTIMA -> "TỐI THƯỢNG · 4 GIAI ĐOẠN TIẾN HÓA";
                         };
                 String footer = anim.enrageTransform
                         ? "HP <= 50% · BỘ 5 KỸ NĂNG HỦY DIỆT ĐÃ KÍCH HOẠT!"
@@ -5835,6 +5953,9 @@ public class CombatFxOverlay extends JComponent {
             case GHIDORAH -> "CẢNH BÁO SIÊU BÃO CẤP Ω · KING GHIDORAH ĐANG TÀN PHÁ TRUNG TÂM THÀNH PHỐ";
             case MOTHRA -> "HIỆN TƯỢNG THIÊN NHIÊN CẤP Ω · MOTHRA THỨC TỈNH TỪ KÉN ÁNH SÁNG GIỮA BÃO";
             case GODZILLA -> "BÁO ĐỘNG HẠT NHÂN · GODZILLA ĐANG ĐỔ BỘ PHÁ HỦY ĐÔ THỊ VEN BIỂN";
+            case SPACEGODZILLA -> "BÁO ĐỘNG QUỸ ĐẠO · SPACEGODZILLA GIÁNG XUỐNG CÙNG MƯA TINH THỂ";
+            case DESTOROYAH -> "BÁO ĐỘNG SINH HỌC · DESTOROYAH TRỒI LÊN TỪ NGHĨA ĐỊA TÀU CHÌM";
+            case ULTIMA -> "BÁO ĐỘNG TỐI THƯỢNG · GODZILLA ULTIMA ĐANG TIẾN HÓA DƯỚI ĐÁY BIỂN";
         };
         drawWarningTapeBar(g, 0, Math.max(0, bandY - tapeH), w, tapeH, (int) (t * 280), warnCol, new Color(0xFACC15), alpha,
                 topTapeMsg);
@@ -5845,7 +5966,9 @@ public class CombatFxOverlay extends JComponent {
 
         // 1. Handheld street-level tremor & impact jolt computation
         double stompAmp = 0.0;
-        if (br.boss == TitanMode.TitanBoss.GODZILLA) {
+        if (KaijuEntranceFx.has(br.boss)) {
+            stompAmp = KaijuEntranceFx.tremor(br.boss, t);
+        } else if (br.boss == TitanMode.TitanBoss.GODZILLA) {
             for (double st : new double[]{0.08, 0.19, 0.29, 0.42}) {
                 double dt = Math.abs(t - st);
                 if (dt < 0.045) stompAmp = Math.max(stompAmp, (1.0 - dt / 0.045) * 11.0);
@@ -5904,6 +6027,8 @@ public class CombatFxOverlay extends JComponent {
                 g.setColor(p % 2 == 0 ? new Color(0x6EE7B7) : new Color(0xFEF08A));
                 g.fillOval(px, py, 6, 6);
             }
+        } else if (KaijuEntranceFx.has(br.boss)) {
+            KaijuEntranceFx.sky(g, br.boss, w, bandY, bandH, waterY, t, alpha, now);
         } else if (!isGhidorah) {
             double sweepA = Math.sin(t * 7.2) * 0.36;
             for (int i = 0; i < 2; i++) {
@@ -6010,8 +6135,13 @@ public class CombatFxOverlay extends JComponent {
             float alpha,
             long now
     ) {
+        if (KaijuEntranceFx.has(br.boss)) {    // 3 boss mới: cách xuất hiện và tụ lực riêng
+            return KaijuEntranceFx.body(g, br.boss, w, bandY, bandH, t, alpha, now);
+        }
         if (br.boss == TitanMode.TitanBoss.GODZILLA) {
-            BufferedImage gz = SpriteAssets.getGodzillaRampageSprite();
+            BufferedImage gz = SpriteAssets.getRampageSprite(br.boss);
+            Color auraCol = new Color(0x06B6D4);
+            Color spineCol = new Color(0x67E8F9);
             double enter = clamp01(t / 0.52);
             double easeScale = 0.58 + 0.48 * Math.pow(enter, 0.78);
             double stompBob = (t < 0.46) ? Math.abs(Math.sin(t * 24.0)) * -10.0 : Math.sin(now * 0.008) * 3.0;
@@ -6023,14 +6153,14 @@ public class CombatFxOverlay extends JComponent {
             if (t >= 0.28) {
                 double chg = clamp01((t - 0.28) / 0.27);
                 float gInt = (float) ((0.35 + 0.60 * chg) * alpha);
-                drawGlow(g, new Color(0x06B6D4), gx + spriteW * 0.58, gy + spriteH * 0.42, spriteW * (0.45 + 0.18 * chg), gInt, true);
+                drawGlow(g, auraCol, gx + spriteW * 0.58, gy + spriteH * 0.42, spriteW * (0.45 + 0.18 * chg), gInt, true);
                 if (t < 0.56) {
                     for (int k = 0; k < 5; k++) {
                         double kPhase = clamp01((chg - k * 0.14) / 0.22);
                         if (kPhase > 0.01) {
                             double fx = gx + spriteW * (0.64 - k * 0.02);
                             double fy = gy + spriteH * (0.62 - k * 0.09);
-                            drawGlow(g, new Color(0x67E8F9), fx, fy, 36.0 + kPhase * 28.0, (float) (kPhase * alpha * 0.95), true);
+                            drawGlow(g, spineCol, fx, fy, 36.0 + kPhase * 28.0, (float) (kPhase * alpha * 0.95), true);
                         }
                     }
                 }
@@ -6097,6 +6227,10 @@ public class CombatFxOverlay extends JComponent {
         double my = mRect[1];
         double mw = mRect[2];
         double mh = mRect[3];
+        if (KaijuEntranceFx.has(br.boss)) {
+            KaijuEntranceFx.beams(g, br.boss, mRect, w, bandY, bandH, t, alpha, now);
+            return;
+        }
         if (br.boss == TitanMode.TitanBoss.GODZILLA) {
             if (t >= 0.28 && t < 0.54) {
                 double p = clamp01((t - 0.28) / 0.26);
@@ -6234,6 +6368,10 @@ public class CombatFxOverlay extends JComponent {
             float alpha,
             long now
     ) {
+        if (KaijuEntranceFx.has(br.boss)) {
+            KaijuEntranceFx.debris(g, br.boss, w, bandY, bandH, t, alpha, now);
+            return;
+        }
         if (br.boss == TitanMode.TitanBoss.MOTHRA) {
             // Luminous emerald-gold Mothra pollen sparkles & gale streaks swirling down the avenue
             if (t >= 0.26 && t <= 0.92) {
@@ -6289,7 +6427,9 @@ public class CombatFxOverlay extends JComponent {
             long now
     ) {
         // Pouring wind-slanted rain for Ghidorah/Mothra storm or glowing atomic ash embers for Godzilla!
-        if (boss == TitanMode.TitanBoss.GHIDORAH || boss == TitanMode.TitanBoss.MOTHRA) {
+        if (KaijuEntranceFx.has(boss)) {
+            KaijuEntranceFx.weather(g, boss, w, bandY, bandH, t, alpha, now);
+        } else if (boss == TitanMode.TitanBoss.GHIDORAH || boss == TitanMode.TitanBoss.MOTHRA) {
             boolean mothraClearing = (boss == TitanMode.TitanBoss.MOTHRA && t > 0.56);
             float rainA = alpha * (mothraClearing ? Math.max(0.10f, (float) (0.45 * (1.0 - (t - 0.56) / 0.35))) : 0.48f);
             g.setComposite(alphaComp(rainA));
@@ -6327,6 +6467,7 @@ public class CombatFxOverlay extends JComponent {
                 case GHIDORAH -> new Color(0xFEF08A);
                 case MOTHRA -> new Color(0x6EE7B7);
                 case GODZILLA -> new Color(0x38BDF8);
+                default -> boss.accentColor;
             };
             drawGlow(g, faceGlow, bx + boyW * 0.62, by + boyH * 0.24, 38.0, alpha * 0.50f, true);
             g.setComposite(alphaComp(alpha));
@@ -6359,6 +6500,9 @@ public class CombatFxOverlay extends JComponent {
             case GODZILLA -> new Color(8, 42, 74);
             case GHIDORAH -> new Color(56, 36, 6);
             case MOTHRA -> new Color(8, 52, 42);
+            case SPACEGODZILLA -> new Color(40, 14, 70);
+            case DESTOROYAH -> new Color(60, 8, 10);
+            case ULTIMA -> new Color(72, 30, 8);
         };
         BufferedImage portrait = SpriteAssets.getTitanSprite(br.boss, false, false);
         Color tagCol = br.boss == TitanMode.TitanBoss.MOTHRA ? new Color(0x6EE7B7) : new Color(0xF87171);
@@ -6366,11 +6510,17 @@ public class CombatFxOverlay extends JComponent {
             case GODZILLA -> "GODZILLA";
             case GHIDORAH -> "KING GHIDORAH";
             case MOTHRA -> "MOTHRA";
+            case SPACEGODZILLA -> "SPACEGODZILLA";
+            case DESTOROYAH -> "DESTOROYAH";
+            case ULTIMA -> "GODZILLA ULTIMA";
         };
         String sub = switch (br.boss) {
             case GODZILLA -> "VUA QUÁI VẬT · HƠI THỞ NGUYÊN TỬ";
             case GHIDORAH -> "HOÀNG ĐẾ BÃO TỐ · TAM ĐẦU LÔI ĐIỆN";
             case MOTHRA -> "NỮ HOÀNG THIÊN NHIÊN · THÁNH QUANG RẼ MÂY";
+            case SPACEGODZILLA -> "ÁC LONG TINH THỂ · TIA CORONA";
+            case DESTOROYAH -> "QUỶ PHÂN RÃ OXY · TIA OXY VI THỂ";
+            case ULTIMA -> "TỐI THƯỢNG · 4 GIAI ĐOẠN TIẾN HÓA";
         };
         Shape savedClip = g.getClip();
         drawAnimeActionBanner(g, ix, iy, cardW, cardH, skew, col,
@@ -6435,7 +6585,9 @@ public class CombatFxOverlay extends JComponent {
 
         // Boy Witness Eyewitness Dialogue Caption anchored cleanly at Bottom-Right beside the boy foreground!
         String quote;
-        if (br.boss == TitanMode.TitanBoss.GODZILLA) {
+        if (KaijuEntranceFx.has(br.boss)) {
+            quote = KaijuEntranceFx.quote(br.boss, t);
+        } else if (br.boss == TitanMode.TitanBoss.GODZILLA) {
             if (t < 0.28) quote = "Cậu bé: \"Cái bóng khổng lồ gì đang bước vào đại lộ vậy?! Mặt đất rung dữ quá!!\"";
             else if (t < 0.55) quote = "Cậu bé: \"Vây lưng nó phát sáng xanh rực hết rồi... chạy mau lên!!\"";
             else if (t < 0.83) quote = "Cậu bé: \"KHÔNG!! Nó khạc tia hủy diệt xé toạc các tòa nhà rồi!!\"";
@@ -7093,6 +7245,15 @@ public class CombatFxOverlay extends JComponent {
     }
 
     private void spawnPostPovTitanFollowupStrikeLocked(TitanSkillPovAnim tp) {
+        if (tp.skill.spec != null) {
+            long now = System.currentTimeMillis();
+            kaijuFx.anims.add(new KaijuSkillFx.Anim(tp.skill, tp.enraged, tp.originPt, tp.cellTargets, tp.impactPt, tp.cellSize,
+                    tp.onImpact, now - Math.round(KaijuSkillFx.flightMs(tp.skill) * 0.35)));
+            rings.add(new ShockwaveRing(tp.originPt.x, tp.originPt.y, tp.cellSize * 2.4, tp.skill.accentColor, 380L));
+            callouts.add(new FloatingCallout(tp.originPt.x, tp.originPt.y + tp.cellSize * 0.85,
+                    KaijuPovFx.callout(tp.skill), tp.skill.accentColor, 980L, 14.0));
+            return;
+        }
         long durationMs = 1040L;
         Color fxAccent = tp.skill.accentColor;
         strikes.add(new ActiveStrike(
@@ -7145,6 +7306,7 @@ public class CombatFxOverlay extends JComponent {
             case GHIDORAH -> "TAM ĐẦU TRỌNG LỰC HỦY DIỆT!";
             case MOTHRA -> tp.skill == TitanMode.TitanSkill.MT_SOLAR_SUPERNOVA
                     ? "SIÊU TÂN TINH SOLAR Ω!" : "THÁNH QUANG RẼ MÂY!";
+            default -> tp.skill.skillName.toUpperCase() + "!";
         };
         callouts.add(new FloatingCallout(
                 tp.impactPt.x, Math.max(40, tp.impactPt.y - tp.cellSize * 1.3),
@@ -7152,6 +7314,7 @@ public class CombatFxOverlay extends JComponent {
     }
 
     private Color[] resolveTitanPovPalette(TitanSkillPovAnim tp) {
+        if (KaijuPovFx.style(tp.skill) != null) return KaijuPovFx.palette(tp.skill, tp.enraged);
         return switch (tp.skill) {
             case GZ_SPIRAL_RAY -> new Color[]{new Color(0x991B1B), new Color(0xEF4444), new Color(0xFEF08A)};
             case GZ_MELTDOWN_RIFT -> new Color[]{new Color(0x9A3412), new Color(0xF97316), new Color(0xFEF08A)};
@@ -7199,12 +7362,14 @@ public class CombatFxOverlay extends JComponent {
         g.fillRect(0, 0, w, h);
 
         int tapeH = 21;
-        String topTape = switch (tp.boss) {
+        boolean newKaiju = KaijuPovFx.style(tp.skill) != null;
+        String topTape = newKaiju ? KaijuPovFx.topTape(tp.skill) : switch (tp.boss) {
             case GODZILLA -> "CẢNH BÁO KAIJU MINUS-ONE · " + tp.skill.skillName.toUpperCase();
             case GHIDORAH -> "THẢM HỌA HOÀNG KIM · " + tp.skill.skillName.toUpperCase();
             case MOTHRA -> "THẦN QUANG THÁI CỰC · " + tp.skill.skillName.toUpperCase();
+            default -> tp.boss.shortLabel.toUpperCase() + " · " + tp.skill.skillName.toUpperCase();
         };
-        String botTape = tp.boss == TitanMode.TitanBoss.GODZILLA
+        String botTape = newKaiju ? KaijuPovFx.bottomTape(tp.skill) : tp.boss == TitanMode.TitanBoss.GODZILLA
                 ? "BẬT CHỐT GAI LƯNG CHERENKOV · CHÂN KHÔNG HỘI TỤ · NẤM HẠT NHÂN HỦY DIỆT"
                 : (tp.boss == TitanMode.TitanBoss.GHIDORAH
                         ? "TAM ĐẦU HỘI TỤ LÔI QUANG · ĐẢO NGƯỢC TRỌNG LỰC MẶT BIỂN · BÃO SÉT ALPHA"
@@ -7267,11 +7432,13 @@ public class CombatFxOverlay extends JComponent {
     }
 
     private static String buildTitanPovPhaseTag(TitanSkillPovAnim tp, double t) {
+        if (KaijuPovFx.style(tp.skill) != null) return KaijuPovFx.phaseTag(tp.skill, t);
         if (t < 0.35) {
             return switch (tp.boss) {
                 case GODZILLA -> "CAM 01 [MINUS-ONE CHARGE] · GAI LƯNG BẬT CHỐT TỪNG ĐỐT!";
                 case GHIDORAH -> "CAM 01 [ALPHA AWAKEN] · TAM ĐẦU RỒNG TỤ SÉT TRỌNG LỰC!";
                 case MOTHRA -> "CAM 01 [DIVINE ASCENT] · MỞ CÁNH LĂNG KÍNH RẼ MÂY!";
+                default -> "CAM 01 [TỤ LỰC] · " + tp.skill.skillName.toUpperCase();
             };
         }
         if (t < 0.425) {
@@ -7284,12 +7451,14 @@ public class CombatFxOverlay extends JComponent {
                 case GODZILLA -> "CAM 02 [PHÓNG XẠ SIÊU ÁP] · XÉ KHÔNG KHÍ MACH CONE!";
                 case GHIDORAH -> "CAM 02 [TAM ĐẦU LÔI QUANG] · SẤM SÉT XÉ MẶT BIỂN!";
                 case MOTHRA -> "CAM 02 [THÁNH QUANG RẼ TRỜI] · QUANG TIÊN QUÉT HẠM ĐỘI!";
+                default -> "CAM 02 [PHÓNG CHIÊU] · " + tp.skill.skillName.toUpperCase();
             };
         }
         return switch (tp.boss) {
             case GODZILLA -> "CAM 03 [SLOW-MO] · NẤM HẠT NHÂN & SÓNG XUNG KÍCH SIÊU ÁP!";
             case GHIDORAH -> "CAM 03 [SLOW-MO] · HỐ ĐEN TRỌNG LỰC & ĐỊA CHẤN SÉT!";
             case MOTHRA -> "CAM 03 [SLOW-MO] · SIÊU TÂN TINH & QUẦN QUANG ĐẠI DƯƠNG!";
+            default -> "CAM 03 [SLOW-MO] · " + tp.skill.skillName.toUpperCase();
         };
     }
 
@@ -7388,6 +7557,11 @@ public class CombatFxOverlay extends JComponent {
             drawGodzillaMinusOneDorsalSpines(g, bx, by, bw, bh, chargeP, vacP, vacuumLock, colMid, colHot, alpha, now);
             mouthX = bx + bw * 0.58;
             mouthY = by + bh * 0.36;
+        } else if (KaijuPovFx.style(tp.skill) != null) {
+            double sz = Math.min(310, bh * 0.88);
+            mouthX = titanCx - sz * 0.30;
+            mouthY = titanCy - sz * 0.18;
+            KaijuPovFx.charge(g, tp.skill, titanCx, titanCy, sz, mouthX, mouthY, seaY, chargeP, vacuumLock, colMid, colHot, alpha, now);
         } else if (tp.boss == TitanMode.TitanBoss.GHIDORAH) {
             // 3 staggered alien heads converging + levitating anti-gravity water droplets
             double[][] headOffsets = {{-0.14, -0.18}, {-0.02, -0.26}, {0.10, -0.14}};
@@ -7581,7 +7755,9 @@ public class CombatFxOverlay extends JComponent {
         g.setComposite(alphaComp(alpha * 0.72));
         drawGlow(g, colHot, curX, seaY, 105.0 * reach, alpha * 0.82f, true);
 
-        if (tp.boss == TitanMode.TitanBoss.GHIDORAH) {
+        if (KaijuPovFx.style(tp.skill) != null) {
+            KaijuPovFx.release(g, tp.skill, fireX, fireY, curX, curY, seaY, p, colDark, colMid, colHot, alpha, now);
+        } else if (tp.boss == TitanMode.TitanBoss.GHIDORAH) {
             // 3 Braided Golden Gravity Lightning Beams erupting from Ghidorah's 3 dragon jaws!
             double[][] headMuzzles = {{-0.28, -0.18}, {-0.32, -0.02}, {-0.18, +0.08}};
             for (int bIdx = 0; bIdx < 3; bIdx++) {
@@ -7698,7 +7874,13 @@ public class CombatFxOverlay extends JComponent {
                 new Color(14, 46, 86), new Color(2, 10, 26), alpha, p);
         drawFleetSilhouettesForTitanPov(g, bx, seaY, bw, alpha * 0.85f, colHot, 0.8);
 
-        if (tp.boss == TitanMode.TitanBoss.GODZILLA) {
+        if (KaijuPovFx.style(tp.skill) != null) {
+            if ("U4".equals(KaijuPovFx.style(tp.skill))) {
+                drawNuclearMushroomCloud(g, impX, seaY, bw, bh, slowP, colDark, colMid, colHot, alpha);
+            }
+            KaijuPovFx.cataclysm(g, tp.skill, impX, seaY, bw, bh, slowP, colDark, colMid, colHot, alpha, now);
+            drawHorizontalShockwaveDisks(g, impX, seaY, slowP, colMid, colHot, alpha);
+        } else if (tp.boss == TitanMode.TitanBoss.GODZILLA) {
             drawNuclearMushroomCloud(g, impX, seaY, bw, bh, slowP, colDark, colMid, colHot, alpha);
         } else if (tp.boss == TitanMode.TitanBoss.GHIDORAH) {
             // Black-Hole Event Horizon Singularity + Golden Accretion Ring + Jagged Levitating Boulders

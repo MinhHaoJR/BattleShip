@@ -1347,6 +1347,7 @@ public class BoardPanel extends JPanel {
                         case GODZILLA -> new Color(0xFB923C);
                         case GHIDORAH -> new Color(0xFACC15);
                         case MOTHRA -> new Color(0x34D399);
+                        default -> scarBoss.accentColor;
                     };
             Color coreSpark = scarBoss == TitanMode.TitanBoss.GHIDORAH
                     ? new Color(0xC084FC)
@@ -4606,6 +4607,9 @@ public class BoardPanel extends JPanel {
             case GODZILLA -> enraged ? "BURNING GODZILLA · " : "GODZILLA · ";
             case GHIDORAH -> enraged ? "STORM GHIDORAH · " : "KING GHIDORAH · ";
             case MOTHRA -> enraged ? "SOLAR MOTHRA · " : "MOTHRA · ";
+            case SPACEGODZILLA -> enraged ? "CRYSTAL SPACEGODZILLA · " : "SPACEGODZILLA · ";
+            case DESTOROYAH -> enraged ? "PERFECT DESTOROYAH · " : "DESTOROYAH · ";
+            case ULTIMA -> "GODZILLA ULTIMA " + TitanMode.ultimaStageName(TitanMode.getUltimaStage()).toUpperCase() + " · ";
         };
         String barrierSuffix = titanEnrageBarrierHp > 0 ? (" [+" + titanEnrageBarrierHp + "]") : "";
         String hpText = bossLabel + titanHp + "/" + titanMaxHp + barrierSuffix;

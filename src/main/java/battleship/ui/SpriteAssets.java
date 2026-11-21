@@ -83,6 +83,8 @@ public final class SpriteAssets {
     private static BufferedImage godzillaRampageVoxel;
     private static BufferedImage ghidorahRampageVoxel;
     private static BufferedImage mothraRampageVoxel;
+    /** Sprite 3 boss mới, khoá theo tên file (vd. "spacegodzilla_idle", "ultima_stage3"); bóng đổ khoá thêm "_shadow". */
+    private static final Map<String, BufferedImage> NEW_TITANS = Collections.synchronizedMap(new java.util.HashMap<>());
     private static BufferedImage superShipH;
     private static BufferedImage superShipV;
     private static BufferedImage superShipShadowH;
@@ -276,6 +278,17 @@ public final class SpriteAssets {
             godzillaRampageVoxel = readImage("/sprites/titans/godzilla_rampage_voxel.png");
             ghidorahRampageVoxel = readImage("/sprites/titans/ghidorah_rampage_voxel.png");
             mothraRampageVoxel = readImage("/sprites/titans/mothra_rampage_voxel.png");
+            for (String n : java.util.List.of("spacegodzilla_idle", "spacegodzilla_enrage", "destoroyah_idle", "destoroyah_enrage",
+                    "ultima_stage1", "ultima_stage2", "ultima_stage3", "ultima_stage4",
+                    "spacegodzilla_rampage_voxel", "destoroyah_rampage_voxel", "ultima_rampage_voxel")) {
+                BufferedImage img = readImage("/sprites/titans/" + n + ".png");
+                if (img == null) continue;
+                NEW_TITANS.put(n, img);
+                if (!n.contains("rampage")) NEW_TITANS.put(n + "_shadow", buildDropShadow(img));
+            }
+            for (TitanMode.TitanSkill sk : TitanMode.TitanSkill.values()) {
+                if (sk.spec != null) TITAN_SKILLS.put(sk, readImage("/sprites/titans/skill_" + sk.name().toLowerCase() + ".png"));
+            }
             titansLoaded = true;
         }
     }
@@ -505,28 +518,11 @@ public final class SpriteAssets {
     }
 
     private static String storyArtPath(String key) {
-        return switch (key) {
-            case "story_ch1_harbor" -> "/story/story_ch1_harbor.jpg";
-            case "story_ch1_zombie" -> "/story/story_ch1_zombie.jpg";
-            case "story_ch1_godzilla" -> "/story/story_ch1_godzilla.jpg";
-            case "story_ch2_fantasy" -> "/story/story_ch2_fantasy.jpg";
-            case "story_ch3_apocalypse" -> "/story/story_ch3_apocalypse.jpg";
-            case "story_ch4_galaxy" -> "/story/story_ch4_galaxy.jpg";
-            case "story_ch5_atlantis" -> "/story/story_ch5_atlantis.jpg";
-            case "story_mothra_queen" -> "/story/story_mothra_queen.jpg";
-            case "story_finale_ghidorah" -> "/story/story_finale_ghidorah.jpg";
-            case "story_epilogue_victory" -> "/story/story_epilogue_victory.jpg";
-            case "story_sad_sunken_fleet" -> "/story/story_sad_sunken_fleet.jpg";
-            case "story_sad_mothra_farewell" -> "/story/story_sad_mothra_farewell.jpg";
-            case "story_sad_vega_confession" -> "/story/story_sad_vega_confession.jpg";
-            case "story_sad_lyra_tears" -> "/story/story_sad_lyra_tears.jpg";
-            case "story_sad_atlantis_elegy" -> "/story/story_sad_atlantis_elegy.jpg";
-            case "story_sad_memorial_dawn" -> "/story/story_sad_memorial_dawn.jpg";
-            case "story_portrait_kai" -> "/story/story_portrait_kai.jpg";
-            case "story_portrait_lyra" -> "/story/story_portrait_lyra.jpg";
-            case "story_portrait_vega" -> "/story/story_portrait_vega.jpg";
-            default -> null;
-        };
+        if (!key.startsWith("story_")) return null;
+        String path = "/story/" + key + ".jpg";
+        // Chưa có ảnh riêng (vd. chân dung Raskov) thì mượn chân dung Kai thay vì để trống.
+        return SpriteAssets.class.getResource(path) != null || !key.startsWith("story_portrait_")
+                ? path : "/story/story_portrait_kai.jpg";
     }
 
     public static BufferedImage getZombieShipSprite(ShipType type, boolean horizontal) {
@@ -546,8 +542,36 @@ public final class SpriteAssets {
         return zc == null ? null : ZOMBIE_PROJECTILES.get(zc);
     }
 
+    /** Tên sprite của boss mới theo trạng thái; null với 3 boss cũ. */
+    private static String newTitanKey(TitanMode.TitanBoss boss, boolean enraged, boolean charging) {
+        if (boss == null) return null;
+        return switch (boss) {
+            case SPACEGODZILLA -> (enraged || charging) ? "spacegodzilla_enrage" : "spacegodzilla_idle";
+            case DESTOROYAH -> (enraged || charging) ? "destoroyah_enrage" : "destoroyah_idle";
+            case ULTIMA -> "ultima_stage" + TitanMode.getUltimaStage();
+            default -> null;
+        };
+    }
+
+    /** Sprite của một form Godzilla Ultima bất kỳ (1–4), không phụ thuộc form đang đánh. */
+    public static BufferedImage getUltimaStageSprite(int stage) {
+        ensureTitansLoaded();
+        return NEW_TITANS.get("ultima_stage" + Math.max(1, Math.min(4, stage)));
+    }
+
+    /** Sprite toàn thân dùng trong cảnh POV boss phá thành phố. */
+    public static BufferedImage getRampageSprite(TitanMode.TitanBoss boss) {
+        ensureTitansLoaded();
+        if (boss == null || boss == TitanMode.TitanBoss.GODZILLA) return godzillaRampageVoxel;
+        if (boss == TitanMode.TitanBoss.GHIDORAH) return ghidorahRampageVoxel;
+        if (boss == TitanMode.TitanBoss.MOTHRA) return mothraRampageVoxel;
+        return NEW_TITANS.getOrDefault(boss.name().toLowerCase() + "_rampage_voxel", godzillaRampageVoxel);
+    }
+
     public static BufferedImage getTitanSprite(TitanMode.TitanBoss boss, boolean enraged, boolean charging) {
         ensureTitansLoaded();
+        String key = newTitanKey(boss, enraged, charging);
+        if (key != null && NEW_TITANS.containsKey(key)) return NEW_TITANS.get(key);
         if (boss == TitanMode.TitanBoss.GHIDORAH) {
             return (enraged || charging) ? titanKgStorm : titanKgIdle;
         }
@@ -562,6 +586,8 @@ public final class SpriteAssets {
 
     public static BufferedImage getTitanShadow(TitanMode.TitanBoss boss, boolean enraged) {
         ensureTitansLoaded();
+        String key = newTitanKey(boss, enraged, false);
+        if (key != null && NEW_TITANS.containsKey(key + "_shadow")) return NEW_TITANS.get(key + "_shadow");
         if (boss == TitanMode.TitanBoss.GHIDORAH) {
             return enraged ? titanKgStormShadow : titanKgIdleShadow;
         }
@@ -575,14 +601,14 @@ public final class SpriteAssets {
     public static BufferedImage getDamagedTitanSprite(TitanMode.TitanBoss boss, boolean enraged, boolean charging, int brokenMask) {
         BufferedImage base = getTitanSprite(boss, enraged, charging);
         if (base == null || brokenMask == 0) return base;
-        String key = (boss != null ? boss.name() : "GODZILLA") + "_" + enraged + "_" + charging + "_" + brokenMask;
+        String key = (boss != null ? boss.name() + (boss == TitanMode.TitanBoss.ULTIMA ? TitanMode.getUltimaStage() : "") : "GODZILLA") + "_" + enraged + "_" + charging + "_" + brokenMask;
         return DAMAGED_TITAN_SPRITES.computeIfAbsent(key, k -> buildDamagedTitanSprite(base, boss, brokenMask));
     }
 
     /** Returns the drop shadow corresponding to a damaged/severed Boss sprite so missing limbs don't cast ghost shadows. */
     public static BufferedImage getDamagedTitanShadow(TitanMode.TitanBoss boss, boolean enraged, boolean charging, int brokenMask) {
         if (brokenMask == 0) return getTitanShadow(boss, enraged);
-        String key = (boss != null ? boss.name() : "GODZILLA") + "_" + enraged + "_" + charging + "_" + brokenMask;
+        String key = (boss != null ? boss.name() + (boss == TitanMode.TitanBoss.ULTIMA ? TitanMode.getUltimaStage() : "") : "GODZILLA") + "_" + enraged + "_" + charging + "_" + brokenMask;
         return DAMAGED_TITAN_SHADOWS.computeIfAbsent(key, k -> {
             BufferedImage dmg = getDamagedTitanSprite(boss, enraged, charging, brokenMask);
             return dmg != null ? buildDropShadow(dmg) : getTitanShadow(boss, enraged);
@@ -594,7 +620,7 @@ public final class SpriteAssets {
         if (part == null) return null;
         BufferedImage base = getTitanSprite(boss, enraged, charging);
         if (base == null) return null;
-        String key = (boss != null ? boss.name() : "GODZILLA") + "_" + enraged + "_" + charging + "_" + part.name();
+        String key = (boss != null ? boss.name() + (boss == TitanMode.TitanBoss.ULTIMA ? TitanMode.getUltimaStage() : "") : "GODZILLA") + "_" + enraged + "_" + charging + "_" + part.name();
         return SEVERED_PART_CHUNKS.computeIfAbsent(key, k -> extractSeveredChunk(base, boss, part));
     }
 
