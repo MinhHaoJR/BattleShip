@@ -1648,11 +1648,7 @@ public final class TitanBattleController {
     private void evolveUltima(int stage) {
         ultimaStage = stage;
         ultimaStarOpen = false;
-        // Tiến hóa = cơ thể mới: bộ phận đã phá ở form trước mọc lại đủ, sprite form mới không bị khuyết
-        for (TitanMode.TitanPart part : TitanMode.TitanPart.values()) {
-            partHp.put(part, getPartMaxHp(part));
-            partBroken.put(part, false);
-        }
+        regrowParts();
         TitanMode.setUltimaStage(stage);
         skillBag.clear();
         // Đổi form thì huỷ chiêu đang vận của form cũ (giống bị ngắt chiêu)
@@ -1668,11 +1664,22 @@ public final class TitanBattleController {
 
     public int getUltimaStage() { return ultimaStage; }
 
+    /** Tiến hóa = cơ thể mới: bộ phận đã phá mọc lại đủ, sprite dạng mới không bị khuyết. */
+    private void regrowParts() {
+        for (TitanMode.TitanPart part : TitanMode.TitanPart.values()) {
+            partHp.put(part, getPartMaxHp(part));
+            partBroken.put(part, false);
+        }
+    }
+
     /** Chiêu ★ đã dùng được chưa: Ultima theo từng form, boss khác theo mốc cuồng bạo 50%. */
     public boolean isStarSkillsOpen() { return boss == TitanMode.TitanBoss.ULTIMA ? ultimaStarOpen : enraged; }
 
     private void activatePhase2Enrage() {
         enraged = true;
+        if (boss == TitanMode.TitanBoss.SPACEGODZILLA || boss == TitanMode.TitanBoss.DESTOROYAH) {
+            regrowParts();      // tiến hóa thành Crystal SpaceGodzilla / Perfect Destoroyah: thân mới nguyên vẹn
+        }
         enrageBarrierMaxHp = computeEnrageBarrierMax();
         enrageBarrierHp = enrageBarrierMaxHp;
         antiMissileCooldownMs = 0L;
