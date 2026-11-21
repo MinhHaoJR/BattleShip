@@ -4267,6 +4267,7 @@ public class BoardPanel extends JPanel {
     }
 
     private static double titanWaterRatio(TitanMode.TitanBoss boss) {
+        if (KaijuEntranceFx.has(boss)) return 0.95;      // 3 boss mới đứng hẳn trên mặt nước: mực nước ở bàn chân
         if (boss == TitanMode.TitanBoss.GHIDORAH) return 0.8826;
         if (boss == TitanMode.TitanBoss.MOTHRA) return 0.8497;
         return 0.8215;
@@ -4307,10 +4308,12 @@ public class BoardPanel extends JPanel {
             }
         }
 
-        double yShift = (titanBoss == TitanMode.TitanBoss.GHIDORAH) ? -0.18
+        // 3 boss mới: nhỏ hơn 1 ô và nâng lên để thấy đủ chân, đường nước vẫn ở chỗ cũ (y + 8,79 ô)
+        boolean newKaiju = KaijuEntranceFx.has(titanBoss);
+        double yShift = newKaiju ? -0.33 : (titanBoss == TitanMode.TitanBoss.GHIDORAH) ? -0.18
                 : (titanBoss == TitanMode.TitanBoss.MOTHRA ? -0.22 : 0.08);
-        int bw = (int) Math.round(s * 10.6);
-        int bh = (int) Math.round(s * 10.6);
+        int bw = (int) Math.round(s * (newKaiju ? 9.6 : 10.6));
+        int bh = bw;
         int bx = (int) Math.round(layout.gridX - s * 0.35 + s * titanVisOffC + lungeX + shakeX);
         int by = (int) Math.round(layout.gridY + s * yShift + s * titanVisOffR + bobY + surgeY);
         return new int[]{bx, by, bw, bh};

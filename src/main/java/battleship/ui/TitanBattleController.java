@@ -1648,6 +1648,11 @@ public final class TitanBattleController {
     private void evolveUltima(int stage) {
         ultimaStage = stage;
         ultimaStarOpen = false;
+        // Tiến hóa = cơ thể mới: bộ phận đã phá ở form trước mọc lại đủ, sprite form mới không bị khuyết
+        for (TitanMode.TitanPart part : TitanMode.TitanPart.values()) {
+            partHp.put(part, getPartMaxHp(part));
+            partBroken.put(part, false);
+        }
         TitanMode.setUltimaStage(stage);
         skillBag.clear();
         // Đổi form thì huỷ chiêu đang vận của form cũ (giống bị ngắt chiêu)
