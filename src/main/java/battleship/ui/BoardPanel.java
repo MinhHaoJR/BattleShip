@@ -433,14 +433,19 @@ public class BoardPanel extends JPanel {
         return new int[]{row, col};
     }
 
+    /** Bề rộng cột HUD dọc của boss bên phải bàn cờ: thanh máu + thanh năng lượng, không chữ. */
+    private static final int TITAN_HUD_W = 40;
+    private static final int TITAN_HUD_GAP = 8;
+
     private Layout computeLayout() {
         int labels = UiTokens.BOARD_LABEL_GUTTER;
-        int availableWidth = Math.max(0, getWidth() - labels - UiTokens.SPACE_MD * 2);
+        int hudReserve = titanBoss != null ? TITAN_HUD_W + TITAN_HUD_GAP : 0;   // chừa cột HUD để thanh không đè lên boss
+        int availableWidth = Math.max(0, getWidth() - labels - hudReserve - UiTokens.SPACE_MD * 2);
         int titleSpace = title.isBlank() ? 0 : UiTokens.SPACE_LG;
         int availableHeight = Math.max(0, getHeight() - labels - UiTokens.SPACE_MD * 2 - titleSpace);
         int cellSize = Math.max(1, Math.min(availableWidth / Board.SIZE, availableHeight / Board.SIZE));
         int gridSize = cellSize * Board.SIZE;
-        int gridX = labels + (getWidth() - labels - gridSize) / 2;
+        int gridX = labels + (getWidth() - labels - hudReserve - gridSize) / 2;
         int gridY = titleSpace + labels + (getHeight() - titleSpace - labels - gridSize) / 2;
         return new Layout(cellSize, gridX, gridY);
     }
@@ -4572,182 +4577,58 @@ public class BoardPanel extends JPanel {
         // Layer B: Overlapping ocean surf collar + gravity ocean splash droplets IN FRONT OF waterline rim
         drawTitanWaterFront(g, layout, bx, by, bw, bh, surfaceY, auraCol, enraged, charging, elapsed, now);
 
-        // 3. Crisp Compact Voxel Boss HP & Phase Bar inside row 0 headroom (never clips outside board!)
-        int barW = Math.min(s * 8, layout.cellSize * 8 - 8);
-        int barH = Math.max(15, Math.min(20, s / 2 + 2));
-        int barX = layout.gridX + (s * Board.SIZE - barW) / 2;
-        int barY = layout.gridY + Math.max(3, (s - barH) / 2);
+        // 3. Cột HUD dọc bên phải vùng boss (không đè lên boss), không chữ: thanh máu + thanh năng lượng (vận chiêu).
+        //    Cả hai đầy từ dưới lên.
+        int colX = layout.gridX + s * Board.SIZE + TITAN_HUD_GAP;
+        int colY = layout.gridY;
+        int colH = s * Board.SIZE;
 
+        // 3a. Máu boss (+ vạch xanh lớp giáp cuồng bạo)
+        int hpW = 20;
         g.setComposite(alphaComp(0.88));
         g.setColor(new Color(8, 15, 29));
-        SpriteAssets.fillChamferedBox(g, barX, barY, barW, barH, 4);
+        SpriteAssets.fillChamferedBox(g, colX, colY, hpW, colH, 4);
         g.setColor(auraCol);
-        SpriteAssets.drawVoxelChamferBox(g, barX, barY, barW, barH, 4, 2);
-
+        SpriteAssets.drawVoxelChamferBox(g, colX, colY, hpW, colH, 4, 2);
         double ratio = Math.max(0.0, Math.min(1.0, titanHp / (double) Math.max(1, titanMaxHp)));
-        int fillW = (int) Math.round((barW - 6) * ratio);
-        if (fillW > 0) {
+        int fillH = (int) Math.round((colH - 6) * ratio);
+        if (fillH > 0) {
             g.setComposite(alphaComp(0.92));
             g.setColor(auraCol);
-            SpriteAssets.fillChamferedBox(g, barX + 3, barY + 3, fillW, barH - 6, 2);
+            SpriteAssets.fillChamferedBox(g, colX + 3, colY + colH - 3 - fillH, hpW - 6, fillH, 2);
             g.setColor(Color.WHITE);
             g.setComposite(alphaComp(0.26));
-            g.fillRect(barX + 4, barY + 4, Math.max(2, fillW - 2), 2);
+            g.fillRect(colX + 4, colY + colH - 2 - fillH, 2, Math.max(2, fillH - 2));
         }
         if (titanEnrageBarrierHp > 0 && titanEnrageBarrierMaxHp > 0) {
             double bRatio = Math.max(0.0, Math.min(1.0, titanEnrageBarrierHp / (double) titanEnrageBarrierMaxHp));
-            int bFill = (int) Math.round((barW - 6) * bRatio);
+            int bFill = (int) Math.round((colH - 6) * bRatio);
             if (bFill > 0) {
                 g.setComposite(alphaComp(0.76));
                 g.setColor(new Color(0x38BDF8));
-                g.fillRect(barX + barW - 3 - bFill, barY + barH - 6, bFill, 3);
+                g.fillRect(colX + hpW - 6, colY + 3, 3, bFill);
             }
         }
-        g.setComposite(alphaComp(1.0));
-        g.setFont(UiTokens.FONT_COORD);
-        FontMetrics fm = g.getFontMetrics();
-        String bossLabel = switch (boss) {
-            case GODZILLA -> enraged ? "BURNING GODZILLA · " : "GODZILLA · ";
-            case GHIDORAH -> enraged ? "STORM GHIDORAH · " : "KING GHIDORAH · ";
-            case MOTHRA -> enraged ? "SOLAR MOTHRA · " : "MOTHRA · ";
-            case SPACEGODZILLA -> enraged ? "CRYSTAL SPACEGODZILLA · " : "SPACEGODZILLA · ";
-            case DESTOROYAH -> enraged ? "PERFECT DESTOROYAH · " : "DESTOROYAH · ";
-            case ULTIMA -> "GODZILLA ULTIMA " + TitanMode.ultimaStageName(TitanMode.getUltimaStage()).toUpperCase() + " · ";
-        };
-        String barrierSuffix = titanEnrageBarrierHp > 0 ? (" [+" + titanEnrageBarrierHp + "]") : "";
-        String hpText = bossLabel + titanHp + "/" + titanMaxHp + barrierSuffix;
-        int tx = barX + (barW - fm.stringWidth(hpText)) / 2;
-        int ty = barY + (barH - fm.getHeight()) / 2 + fm.getAscent();
-        g.setColor(new Color(0, 0, 0, 175));
-        g.drawString(hpText, tx + 1, ty + 1);
-        g.setColor(Color.WHITE);
-        g.drawString(hpText, tx, ty);
 
-        // 4. Compact Stagger Gauge + Cast Bar / Status Strip directly under Boss HP bar
-        int subY = barY + barH + 2;
-        if (titanStaggerThreshold > 0 && titanHp > 0) {
-            int stH = Math.max(5, Math.min(7, s / 6));
-            g.setComposite(alphaComp(0.84));
-            g.setColor(new Color(8, 15, 29));
-            g.fillRoundRect(barX, subY, barW, stH, 3, 3);
-            double stRatio = titanStaggered ? 1.0 : Math.min(1.0, titanStaggerGauge / (double) Math.max(1, titanStaggerThreshold));
-            int stFill = (int) Math.round((barW - 2) * stRatio);
-            if (stFill > 0) {
-                g.setColor(titanStaggered ? new Color(0x22D3EE) : new Color(0xF59E0B));
-                g.fillRoundRect(barX + 1, subY + 1, stFill, Math.max(2, stH - 2), 2, 2);
-            }
-            subY += stH + 2;
-        }
-        if ((titanCastProgress > 0.0 || titanStaggered) && titanHp > 0) {
-            int castH = Math.max(12, Math.min(15, s / 2 - 2));
-            g.setComposite(alphaComp(0.90));
-            g.setColor(titanDpsCheckActive ? new Color(48, 8, 16) : new Color(14, 10, 22));
-            SpriteAssets.fillChamferedBox(g, barX, subY, barW, castH, 3);
-            Color castCol = titanStaggered ? new Color(0x22D3EE)
-                    : (titanDpsCheckActive ? (chargePulse > 0.5 ? new Color(0xEF4444) : new Color(0xFACC15))
-                    : (titanCastProgress > 0.72 ? new Color(0xEF4444) : new Color(0xF97316)));
-            g.setColor(castCol);
-            SpriteAssets.drawVoxelChamferBox(g, barX, subY, barW, castH, 3, titanDpsCheckActive ? 2 : 1);
+        // 3b. Năng lượng: đầy dần khi boss vận chiêu (đỏ khi sắp tung, nhấp nháy khi DPS check, xanh khi choáng)
+        int enX = colX + hpW + 4;
+        int enW = 14;
+        boolean casting = (titanCastProgress > 0.0 || titanStaggered) && titanHp > 0;
+        g.setComposite(alphaComp(0.86));
+        g.setColor(titanDpsCheckActive ? new Color(48, 8, 16) : new Color(14, 10, 22));
+        SpriteAssets.fillChamferedBox(g, enX, colY, enW, colH, 3);
+        Color enCol = titanStaggered ? new Color(0x22D3EE)
+                : (titanDpsCheckActive ? (chargePulse > 0.5 ? new Color(0xEF4444) : new Color(0xFACC15))
+                : (titanCastProgress > 0.72 ? new Color(0xEF4444) : new Color(0xF97316)));
+        g.setColor(casting ? enCol : new Color(0x475569));
+        SpriteAssets.drawVoxelChamferBox(g, enX, colY, enW, colH, 3, titanDpsCheckActive ? 2 : 1);
+        if (casting) {
             double cProg = titanStaggered ? 1.0 : titanCastProgress;
-            int cFill = (int) Math.round((barW - 4) * Math.max(0.0, Math.min(1.0, cProg)));
+            int cFill = (int) Math.round((colH - 4) * Math.max(0.0, Math.min(1.0, cProg)));
             if (cFill > 0) {
-                g.setComposite(alphaComp(titanDpsCheckActive ? 0.85 : 0.75));
-                g.fillRect(barX + 2, subY + 2, cFill, Math.max(2, castH - 4));
-            }
-            g.setComposite(alphaComp(1.0));
-            g.setFont(UiTokens.FONT_COORD);
-            FontMetrics cfm = g.getFontMetrics();
-            String baseName = titanCastLabel.isBlank() ? "ĐANG TỤ CHIÊU" : titanCastLabel;
-            String cMsg = titanStaggered ? "★ CHOÁNG! +20% SÁT THƯƠNG ★"
-                    : (titanDpsCheckActive ? "⚠ HỦY DIỆT: " : "") + baseName
-                    + (titanChargingPart != null ? " [" + titanChargingPart.label + "]" : "");
-            int ctx = barX + Math.max(4, (barW - cfm.stringWidth(cMsg)) / 2);
-            int cty = subY + (castH - cfm.getHeight()) / 2 + cfm.getAscent();
-            Shape preCastClip = g.getClip();
-            g.clipRect(barX + 2, subY, Math.max(4, barW - 4), castH);
-            g.setColor(new Color(0, 0, 0, 200));
-            g.drawString(cMsg, ctx + 1, cty + 1);
-            g.setColor(Color.WHITE);
-            g.drawString(cMsg, ctx, cty);
-            g.setClip(preCastClip);
-            subY += castH + 2;
-        }
-        // Compact 3-Part Health Micro-Chips inside barX..barX+barW (Đầu · Lõi · Thân)
-        if (titanHp > 0 && titanStaggerThreshold > 0 && barW >= 140) {
-            int gapP = 4;
-            int pw = (barW - gapP * 2) / 3;
-            int ph = 13;
-            String[] pNames = {"Đầu", "Lõi", "Thân"};
-            boolean[] pBrk = {titanHeadBroken, titanCoreBroken, titanBodyBroken};
-            int[] pHps = {titanHeadHp, titanCoreHp, titanBodyHp};
-            int[] pMax = {titanHeadMax, titanCoreMax, titanBodyMax};
-            Color[] pCols = {new Color(0xFACC15), new Color(0x38BDF8), new Color(0x34D399)};
-            g.setFont(new java.awt.Font(java.awt.Font.SANS_SERIF, java.awt.Font.BOLD, 10));
-            FontMetrics mfm = g.getFontMetrics();
-            for (int pi = 0; pi < 3; pi++) {
-                int px = barX + pi * (pw + gapP);
-                g.setComposite(alphaComp(0.86));
-                g.setColor(new Color(8, 15, 29));
-                g.fillRoundRect(px, subY, pw, ph, 3, 3);
-                if (!pBrk[pi]) {
-                    double frac = Math.max(0.0, Math.min(1.0, pHps[pi] / (double) Math.max(1, pMax[pi])));
-                    int fill = (int) Math.round((pw - 2) * frac);
-                    if (fill > 0) {
-                        g.setComposite(alphaComp(0.58));
-                        g.setColor(pCols[pi]);
-                        g.fillRoundRect(px + 1, subY + 1, fill, ph - 2, 2, 2);
-                    }
-                }
-                g.setComposite(alphaComp(0.92));
-                g.setColor(pBrk[pi] ? new Color(0xEF4444) : pCols[pi]);
-                g.drawRoundRect(px, subY, pw, ph, 3, 3);
-                String txt = pBrk[pi] ? (pNames[pi] + ":RỤNG") : (pNames[pi] + " " + pHps[pi]);
-                int ptx = px + Math.max(2, (pw - mfm.stringWidth(txt)) / 2);
-                g.setColor(pBrk[pi] ? new Color(0xFCA5A5) : Color.WHITE);
-                g.drawString(txt, ptx, subY + 10);
-            }
-            subY += ph + 2;
-        }
-        // Status pills row (kept cleanly inside barX .. barX+barW)
-        String antiTag = null;
-        String antiHex = "#38BDF8";
-        if (titanHp > 0) {
-            if (titanStaggered) {
-                antiTag = "CHỐNG TL: KHÓA";
-                antiHex = "#34D399";
-            } else if (titanAntiMissileReady) {
-                antiTag = (titanAntiMissileTag != null && !titanAntiMissileTag.isBlank())
-                        ? ("CHẶN TL: " + titanAntiMissileTag)
-                        : "CHỐNG TL: SẴN SÀNG";
-                antiHex = titanEnraged ? "#FB7185" : "#FACC15";
-            } else if (titanAntiMissileCdMs > 0L) {
-                antiTag = String.format("MỞ CỬA TL %.1fs", titanAntiMissileCdMs / 1000.0);
-                antiHex = "#34D399";
-            }
-        }
-        if (titanHp > 0 && (titanSubmerged || titanExposed || titanChilled || titanBurnStacks > 0 || antiTag != null)) {
-            int pillX = barX;
-            g.setFont(UiTokens.FONT_COORD);
-            FontMetrics pfm = g.getFontMetrics();
-            String[][] tags = {
-                    antiTag != null ? new String[]{antiTag, antiHex} : null,
-                    titanSubmerged ? new String[]{"LẶN ẨN", "#2DD4BF"} : null,
-                    titanExposed ? new String[]{"LỘ ×1.2", "#FDE047"} : null,
-                    titanChilled ? new String[]{"CHẬM", "#38BDF8"} : null,
-                    titanBurnStacks > 0 ? new String[]{"CHÁY×" + titanBurnStacks, "#FB923C"} : null
-            };
-            for (String[] t : tags) {
-                if (t == null) continue;
-                int pw = pfm.stringWidth(t[0]) + 8;
-                if (pillX + pw > barX + barW) break;
-                Color pc = Color.decode(t[1]);
-                g.setComposite(alphaComp(0.86));
-                g.setColor(new Color(8, 15, 29));
-                g.fillRoundRect(pillX, subY, pw, 13, 4, 4);
-                g.setColor(pc);
-                g.drawRoundRect(pillX, subY, pw, 13, 4, 4);
-                g.drawString(t[0], pillX + 4, subY + 10);
-                pillX += pw + 4;
+                g.setComposite(alphaComp(titanDpsCheckActive ? 0.9 : 0.8));
+                g.setColor(enCol);
+                g.fillRect(enX + 2, colY + colH - 2 - cFill, enW - 4, cFill);
             }
         }
 

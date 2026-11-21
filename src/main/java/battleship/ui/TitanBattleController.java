@@ -1677,9 +1677,7 @@ public final class TitanBattleController {
 
     private void activatePhase2Enrage() {
         enraged = true;
-        if (boss == TitanMode.TitanBoss.SPACEGODZILLA || boss == TitanMode.TitanBoss.DESTOROYAH) {
-            regrowParts();      // tiến hóa thành Crystal SpaceGodzilla / Perfect Destoroyah: thân mới nguyên vẹn
-        }
+        regrowParts();      // mọi boss tiến hóa ở cuồng bạo (Burning Godzilla, Crystal SpaceGodzilla...): thân mới nguyên vẹn
         enrageBarrierMaxHp = computeEnrageBarrierMax();
         enrageBarrierHp = enrageBarrierMaxHp;
         antiMissileCooldownMs = 0L;
